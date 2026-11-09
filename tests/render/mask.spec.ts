@@ -86,3 +86,19 @@ test('a masked surface on top does not black out the surface below', async ({ pa
   expect(px(buf, W, 20, 20)).toEqual([255, 0, 0]);
   expect(px(buf, W, 180, 20)).toEqual([0, 255, 0]);
 });
+
+test('feather is defined in output pixels, independent of render size', async ({ page }) => {
+  const p = addMask(full(), 'a', mask('m', 'include', rect(0.25, 0.25, 0.75, 0.75), 20)); // output is 200 px wide
+  const softWidth = (buf: Uint8Array, w: number) => {
+    const max = lum(px(buf, w, w / 2, w / 2));
+    let n = 0;
+    for (let x = 0; x < w / 2; x++) {
+      const v = lum(px(buf, w, x, w / 2));
+      if (v > 0 && v < max) n++;
+    }
+    return n / w;
+  };
+  const big = softWidth(await render(page, p, 200, 200), 200);
+  const small = softWidth(await render(page, p, 100, 100), 100);
+  expect(Math.abs(big - small)).toBeLessThan(0.03);
+});

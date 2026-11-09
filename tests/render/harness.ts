@@ -47,3 +47,53 @@ async function renderToPixels(json: string, w: number, h: number, opts: Opts = {
 }
 
 Object.assign(window, { renderToPixels, __sources: sources, __renderer: renderer });
+
+// ---- Engine harness ----
+import { ProjectStore } from '../../src/core/store';
+import { Engine, type Mode } from '../../src/renderer/engine';
+import { openProjectorOutput, type ProjectorOutput } from '../../src/renderer/outputs/projector';
+
+let engine: Engine | null = null;
+let output: ProjectorOutput | null = null;
+let outputClosed = false;
+let preview: HTMLCanvasElement | null = null;
+
+async function startEngine(json: string): Promise<void> {
+  const store = new ProjectStore(deserializeProject(json));
+  engine = new Engine(store, ctx);
+  preview = document.createElement('canvas');
+  preview.style.cssText = 'width:320px;height:180px;display:block';
+  document.body.appendChild(preview);
+  engine.attachEditorCanvas(preview);
+  engine.setOverlay({ selectedSurfaceId: 'a', selectedPoints: [], level: 'corners', draftMask: null, marquee: null });
+  output = await openProjectorOutput('/src/renderer/output.html');
+  if (output) {
+    output.onClosed(() => {
+      outputClosed = true;
+      engine?.setOutput(null);
+    });
+    engine.setOutput(output);
+  }
+}
+
+function sample(c: HTMLCanvasElement, x: number, y: number): number[] {
+  const tmp = document.createElement('canvas');
+  tmp.width = c.width;
+  tmp.height = c.height;
+  const g = tmp.getContext('2d')!;
+  g.drawImage(c, 0, 0);
+  return Array.from(g.getImageData(Math.floor(x * c.width), Math.floor(y * c.height), 1, 1).data);
+}
+
+function probe(x: number, y: number) {
+  engine!.renderOnce();
+  const o = engine!.getOutput();
+  return { output: o ? sample(o.canvas, x, y) : null, editor: sample(preview!, x, y), outputClosed };
+}
+
+Object.assign(window, {
+  startEngine,
+  probe,
+  setMode: (m: Mode) => engine?.setMode(m),
+  closeOutput: () => output && (output as unknown as { win: Window }).win.close(),
+});

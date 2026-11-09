@@ -161,10 +161,11 @@ export class MaskCache {
   }
 
   /** Returns the surface's mask texture, or a shared 1×1 white texture when it has no usable masks. */
-  get(s: Surface, size: Size): WebGLTexture {
+  /** `outputWidth` is the project's output width: feather is specified in output pixels. */
+  get(s: Surface, size: Size, outputWidth: number = size.width): WebGLTexture {
     const masks = s.masks.filter((m) => m.points.length >= 3);
     if (masks.length === 0) return this.white;
-    const key = JSON.stringify([masks, size.width, size.height]);
+    const key = JSON.stringify([masks, outputWidth, size.width, size.height]);
     const hit = this.cache.get(s.id);
     if (hit && hit.key === key) return hit.target.tex;
 
@@ -183,7 +184,7 @@ export class MaskCache {
       this.fillPolygon(sc.a, m.points.flatMap((p) => [p.x, p.y]));
       let result = sc.a;
       if (m.feather > 0) {
-        const sigma = m.feather / 2;
+        const sigma = (m.feather / 2) * (size.width / outputWidth);
         this.blurPass(sc.a, sc.b, [1 / size.width, 0], sigma);
         this.blurPass(sc.b, sc.a, [0, 1 / size.height], sigma);
         result = sc.a;

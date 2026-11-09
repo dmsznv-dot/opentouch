@@ -75,8 +75,8 @@ export class Renderer {
     this.textures.clear();
   }
 
-  protected maskFor(s: Surface, size: RenderFrame['size']): WebGLTexture {
-    return this.masks.get(s, size);
+  protected maskFor(s: Surface, size: RenderFrame['size'], outputWidth: number): WebGLTexture {
+    return this.masks.get(s, size, outputWidth);
   }
 
   protected meshFor(s: Surface): MeshEntry {
@@ -159,7 +159,7 @@ export class Renderer {
       const src = useTest ? this.testPattern : s.sourceId ? f.sources.get(s.sourceId) : undefined;
       const tex = src ? this.textureFor(src, f.timeSec) : this.black;
       const rect = useTest ? { x: 0, y: 0, w: 1, h: 1 } : s.inputRect;
-      const mask = this.maskFor(s, f.size);
+      const mask = this.maskFor(s, f.size, f.project.output.width);
       // Mask building changes framebuffer/blend state; restore it for every surface.
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, f.size.width, f.size.height);
