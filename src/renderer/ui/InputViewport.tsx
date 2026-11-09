@@ -1,9 +1,10 @@
+import { centerCrop } from '../../core/geometry/crop';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { setInputRect } from '../../core/ops';
 import type { Rect, Vec2 } from '../../core/types';
 import type { AppContext } from '../app-context';
 import { dragInputRect, hitInputRect, type InputHandle } from './interaction/input-tool';
-import { useEditor, useProject } from './useStore';
+import { useEditor, useProject, useSourceStatusVersion } from './useStore';
 
 const HANDLE_PX = 8;
 const FRAME_MS = 1000 / 30;
@@ -16,6 +17,7 @@ export function InputViewport({ ctx }: { ctx: AppContext }) {
   const surface = useProject(ctx.store, (p) => p.surfaces.find((s) => s.id === selectedId) ?? null);
   const [box, setBox] = useState({ width: 0, height: 0 });
   const drag = useRef<{ h: InputHandle; start: Vec2; rect: Rect } | null>(null);
+  useSourceStatusVersion(ctx.engine);
   const source = surface?.sourceId ? ctx.engine.getSource(surface.sourceId) : undefined;
   const aspect = source && source.width > 1 ? source.width / source.height : 16 / 9;
 
@@ -51,8 +53,9 @@ export function InputViewport({ ctx }: { ctx: AppContext }) {
       g.fillRect(0, 0, c.width, c.height);
       if (!s) return;
       const src = s.sourceId ? ctx.engine.getSource(s.sourceId) : undefined;
-      if (src?.preview && src.status === 'ready') g.drawImage(src.preview, 0, 0, c.width, c.height);
-      const r = s.inputRect;
+      if (src?.preview && (src.hasFrame ?? (src.status === 'ready'))) g.drawImage(src.preview, 0, 0, c.width, c.height);
+      const auto = s.cropToFill && src;
+      const r = auto ? centerCrop(s.inputRect, src, s.corners, ctx.store.get().output) : s.inputRect;
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(0, 0, c.width, r.y * c.height);
       g.fillRect(0, (r.y + r.h) * c.height, c.width, (1 - r.y - r.h) * c.height);
@@ -61,6 +64,7 @@ export function InputViewport({ ctx }: { ctx: AppContext }) {
       g.strokeStyle = '#3fa9f5';
       g.lineWidth = 1 * dpr;
       g.strokeRect(r.x * c.width, r.y * c.height, r.w * c.width, r.h * c.height);
+      if (auto) return;
       g.fillStyle = '#fff';
       const hs = HANDLE_PX * dpr;
       for (const fx of [0, 0.5, 1])
@@ -86,7 +90,7 @@ export function InputViewport({ ctx }: { ctx: AppContext }) {
         data-testid="input-canvas"
         style={{ width: box.width, height: box.height, display: surface ? 'block' : 'none' }}
         onPointerDown={(e) => {
-          if (!surface) return;
+          if (!surface || surface.cropToFill) return;
           const at = norm(e);
           const h = hitInputRect(surface.inputRect, at, { x: HANDLE_PX / box.width, y: HANDLE_PX / box.height });
           if (!h) return;

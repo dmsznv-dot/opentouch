@@ -5,6 +5,7 @@ import { Renderer, type OverlayState, type RenderFrame } from './gl/renderer';
 import type { Output } from './outputs/types';
 import { getFactory } from './sources/registry';
 import type { Source, SourceContext, SourceStatus } from './sources/types';
+import { SequenceSource } from './sources/sequence';
 import { VideoSource } from './sources/video';
 
 export type Mode = 'edit' | 'show';
@@ -31,6 +32,7 @@ export class Engine {
   private lastStatus = '';
   private lastPreview = 0;
   private raf = 0;
+  private offStore: () => void;
   private stopped = false;
 
   constructor(
@@ -38,13 +40,14 @@ export class Engine {
     private readonly ctx: SourceContext,
   ) {
     this.syncSources(store.get());
-    store.subscribe(() => this.syncSources(store.get()));
+    this.offStore = store.subscribe(() => this.syncSources(store.get()));
     const loop = (t: number) => {
       if (this.stopped) return;
       this.raf = requestAnimationFrame(loop);
       if (t - this.lastPreview < PREVIEW_MIN_FRAME_MS) return;
       this.lastPreview = t;
       try {
+        this.tickSources(t / 1000);
         this.renderEditor(t / 1000);
         this.checkStatus();
       } catch (e) {
@@ -81,13 +84,18 @@ export class Engine {
         l.def = def;
         return;
       }
+      if (l && def.type === 'sequence' && l.source instanceof SequenceSource) {
+        l.source.setParams(def.params);
+        l.def = def;
+        return;
+      }
       if (l && sameKind && JSON.stringify(l.def.params) === JSON.stringify(def.params)) {
         l.def = def;
         return;
       }
       l?.source.dispose();
       const source = getFactory(def.type).create(def.id, def.params, this.ctx);
-      if (source instanceof VideoSource && !this.playing) source.pause();
+      if ((source instanceof VideoSource || source instanceof SequenceSource) && !this.playing) source.pause();
       this.live.set(def.id, { def, source });
     }
   }
@@ -117,6 +125,7 @@ export class Engine {
   private renderOutput(timeSec: number): void {
     const o = this.output;
     if (!o) return;
+    this.tickSources(performance.now() / 1000);
     o.renderer.render(this.frame(this.mode === 'edit' ? this.overlay : null, timeSec, { width: o.o.width, height: o.o.height }, 1));
   }
 
@@ -164,18 +173,29 @@ export class Engine {
     this.testPattern = t;
   }
 
-  private videos(): VideoSource[] {
-    return [...this.live.values()].map((l) => l.source).filter((s): s is VideoSource => s instanceof VideoSource);
+  private mediaSources(): (VideoSource | SequenceSource)[] {
+    return [...this.live.values()].map((l) => l.source)
+      .filter((s): s is VideoSource | SequenceSource => s instanceof VideoSource || s instanceof SequenceSource);
+  }
+
+  private tickSources(time: number): void {
+    for (const source of this.mediaSources()) {
+      try {
+        source.tick(time);
+      } catch (e) {
+        console.warn(`Source ${source.id} failed to update`, e);
+      }
+    }
   }
 
   play(): void {
     this.playing = true;
-    this.videos().forEach((v) => v.play());
+    this.mediaSources().forEach((v) => v.play());
   }
 
   pause(): void {
     this.playing = false;
-    this.videos().forEach((v) => v.pause());
+    this.mediaSources().forEach((v) => v.pause());
   }
 
   isPlaying(): boolean {
@@ -183,7 +203,7 @@ export class Engine {
   }
 
   restart(): void {
-    this.videos().forEach((v) => v.restart());
+    this.mediaSources().forEach((v) => v.restart());
   }
 
   getSource(id: string): Source | undefined {
@@ -203,12 +223,14 @@ export class Engine {
   /** Renders both targets immediately (screenshots, tests). */
   renderOnce(): void {
     const t = performance.now() / 1000;
+    this.tickSources(t);
     this.renderEditor(t);
     this.renderOutput(t);
   }
 
   dispose(): void {
     this.stopped = true;
+    this.offStore();
     cancelAnimationFrame(this.raf);
     this.setOutput(null);
     this.attachEditorCanvas(null);

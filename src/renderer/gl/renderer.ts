@@ -1,3 +1,4 @@
+import { centerCrop } from '../../core/geometry/crop';
 import type { PointRef, Project, Rect, Surface, Vec2 } from '../../core/types';
 import { getSurfaceMesh, type SurfaceMesh } from '../../core/warp/mesh';
 import { testPatternFactory } from '../sources/testpattern';
@@ -133,7 +134,7 @@ export class Renderer {
       this.textures.set(src.id, tex);
     }
     src.update(this.gl, tex, timeSec);
-    return src.status === 'ready' ? tex : this.black;
+    return (src.hasFrame ?? (src.status === 'ready')) ? tex : this.black;
   }
 
   render(f: RenderFrame): void {
@@ -189,7 +190,8 @@ export class Renderer {
       } catch (e) {
         console.warn(`Source ${src?.id} failed to update`, e);
       }
-      const rect = useTest ? { x: 0, y: 0, w: 1, h: 1 } : s.inputRect;
+      const rect = useTest ? { x: 0, y: 0, w: 1, h: 1 } :
+        s.cropToFill && src ? centerCrop(s.inputRect, src, s.corners, f.project.output) : s.inputRect;
       const mask = this.maskFor(s, f.size, f.project.output.width);
       // Mask building changes framebuffer/blend state; restore it for every surface.
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);

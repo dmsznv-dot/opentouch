@@ -38,6 +38,9 @@ const api: OpenTouchApi = {
     toRelative: async (j) => j,
   },
   app: {
+    updateState: async () => ({ status: 'current' }),
+    checkUpdate: async () => ({ status: 'current' }),
+    installUpdate: async () => null,
     restoreState: async () =>
       (window as unknown as { __restoreState?: Awaited<ReturnType<OpenTouchApi['app']['restoreState']>> }).__restoreState ?? { open: null, mode: 'edit', fromAutosave: false, projectPath: null },
     setMode: () => {},

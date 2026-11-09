@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: opentouch-macos-release
+  cancel-in-progress: false
+
 jobs:
   dmg:
     runs-on: macos-latest
@@ -25,17 +29,46 @@ jobs:
       - name: Typecheck and unit tests
         run: npm run typecheck && npm run test:unit
 
-      - name: Build DMG (Apple Silicon + Intel, ad-hoc signed)
-        run: npm run dist:mac
+      - name: Prepare release version
+        run: |
+          VERSION="0.2.${GITHUB_RUN_NUMBER}"
+          npm version "$VERSION" --no-git-tag-version
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Build macOS packages
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npm run build
+          if [[ -n "$CSC_LINK" && -n "$CSC_KEY_PASSWORD" && -n "$APPLE_ID" && -n "$APPLE_APP_SPECIFIC_PASSWORD" && -n "$APPLE_TEAM_ID" ]]; then
+            npm pkg set opentouchUpdates=true --json
+            npx electron-builder --mac dmg zip --arm64 --x64 --publish never --config.forceCodeSigning=true --config.mac.notarize=true
+            echo "SIGNED_RELEASE=true" >> "$GITHUB_ENV"
+          else
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --arm64 --x64 --publish never --config.mac.identity=-
+          fi
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="build-${{ github.run_number }}"
-          gh release create "$TAG" dist/OpenTouch-arm64.dmg dist/OpenTouch-x64.dmg \
-            --target "${{ github.sha }}" \
-            --title "OpenTouch build ${{ github.run_number }}" \
-            --notes "Автосборка из ${{ github.ref_name }} @ ${GITHUB_SHA::7}. Apple Silicon (M1–M4): OpenTouch-arm64.dmg. Intel: OpenTouch-x64.dmg. Первый запуск: см. docs/RUN-ON-MAC.md."
+          if [[ "$SIGNED_RELEASE" == true ]]; then
+            TAG="v$VERSION"
+            for ARCH in arm64 x64; do
+              ZIP="OpenTouch-$ARCH.zip"
+              URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ZIP"
+              jq -n --arg version "$VERSION" --arg url "$URL" --arg date "$(date -u +%FT%TZ)" \
+                '{currentRelease: $version, releases: [{version: $version, updateTo: {version: $version, name: ("OpenTouch " + $version), pub_date: $date, url: $url}}]}' \
+                > "dist/updates-$ARCH.json"
+            done
+            gh release create "$TAG" dist/OpenTouch-*.dmg dist/OpenTouch-*.zip dist/updates-*.json \
+              --target "$GITHUB_SHA" --title "OpenTouch $VERSION" --generate-notes --latest
+          else
+            gh release create "build-$GITHUB_RUN_NUMBER" dist/OpenTouch-*.dmg \
+              --target "$GITHUB_SHA" --title "OpenTouch preview $VERSION" --generate-notes --prerelease
+          fi

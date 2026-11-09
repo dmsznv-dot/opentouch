@@ -9,13 +9,23 @@ import { TopBar } from './TopBar';
 import { Viewport } from './Viewport';
 import { InputViewport } from './InputViewport';
 import { Inspector } from './Inspector';
-import { useEditor } from './useStore';
+import { Timeline } from './Timeline';
+import { useEditor, useProject } from './useStore';
 import './app.css';
 
 export function App({ ctx }: { ctx: AppContext }) {
   const act = useMemo(() => actions(ctx), [ctx]);
   const message = useEditor(ctx.editor, (e) => e.message);
   const tab = useEditor(ctx.editor, (e) => e.tab);
+  const selectedSource = useEditor(ctx.editor, (e) => e.selectedSourceId);
+  const selectedSurface = useEditor(ctx.editor, (e) => e.selectedSurfaceId);
+  const mode = useEditor(ctx.editor, (e) => e.mode);
+  const sequence = useProject(ctx.store, (p) => {
+    const id = selectedSource ?? p.surfaces.find((s) => s.id === selectedSurface)?.sourceId;
+    const source = p.sources.find((s) => s.id === id);
+    return source?.type === 'sequence' ? source : null;
+  });
+  const showTimeline = sequence && mode === 'edit';
   const onOpen = () => void openProject(ctx);
   const onSave = () => void saveProject(ctx);
 
@@ -63,7 +73,7 @@ export function App({ ctx }: { ctx: AppContext }) {
           <SurfaceList ctx={ctx} act={act} />
           <SourceList ctx={ctx} act={act} onRelink={(id) => void relinkSource(ctx, id)} />
         </div>
-        <div className="viewport">
+        <div className={`viewport${showTimeline ? ' with-timeline' : ''}`}>
           <div className="tabs">
             <button className={tab === 'output' ? 'on' : ''} onClick={() => ctx.editor.set({ tab: 'output' })}>
               Output
@@ -73,6 +83,7 @@ export function App({ ctx }: { ctx: AppContext }) {
             </button>
           </div>
           {tab === 'output' ? <Viewport ctx={ctx} /> : <InputViewport ctx={ctx} />}
+          {showTimeline && <Timeline key={sequence.id} ctx={ctx} source={sequence} />}
           {message && <div className="message">{message}</div>}
         </div>
         <div className="side right">

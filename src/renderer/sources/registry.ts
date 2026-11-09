@@ -1,3 +1,4 @@
+import { sequenceFactory } from './sequence';
 import { testPatternFactory } from './testpattern';
 import type { SourceFactory } from './types';
 import { videoFactory } from './video';
@@ -19,3 +20,4 @@ export function getFactory(type: string): SourceFactory<any> {
 
 registerSource(videoFactory);
 registerSource(testPatternFactory);
+registerSource(sequenceFactory);

@@ -18,6 +18,7 @@ export function SourceList({ ctx, act, onRelink }: { ctx: AppContext; act: Actio
           ＋ Test
         </button>
       </h3>
+      <button className="icon" data-testid="add-sequence" onClick={act.addSequence}>＋ Sequence</button>
       {sources.length === 0 && <div className="empty">Drop video files here</div>}
       {sources.map((s) => {
         const st = ctx.engine.sourceStatus(s.id);
@@ -30,7 +31,7 @@ export function SourceList({ ctx, act, onRelink }: { ctx: AppContext; act: Actio
           >
             <span className={`status ${st?.status ?? 'loading'}`} />
             <span className="name">{s.name}</span>
-            {st?.status === 'missing' && (
+            {st?.status === 'missing' && s.type === 'video' && (
               <button className="icon" onClick={(e) => (e.stopPropagation(), onRelink(s.id))}>
                 Relink
               </button>

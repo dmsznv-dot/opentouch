@@ -1,7 +1,8 @@
 import * as ops from '../../core/ops';
 import type { GridMode, Mask, SourceDef, Surface, VideoParams } from '../../core/types';
 import type { AppContext } from '../app-context';
-import { useEditor, useProject } from './useStore';
+import { EffectChain } from './EffectChain';
+import { useEditor, useProject, useSourceStatusVersion } from './useStore';
 
 function Slider({ ctx, label, value, min, max, step, onChange, testId }: {
   ctx: AppContext; label: string; value: number; min: number; max: number; step: number; onChange(v: number): void; testId?: string;
@@ -50,6 +51,10 @@ function SurfaceInspector({ ctx, s }: { ctx: AppContext; s: Surface }) {
             </option>
           ))}
         </select>
+      </label>
+      <label className="field" title="Center the crop and preserve the source proportions">
+        <span>Crop to fill</span>
+        <input type="checkbox" checked={s.cropToFill ?? false} onChange={(e) => set('Crop to fill', { cropToFill: e.target.checked })} />
       </label>
       <Slider ctx={ctx} label="Opacity" testId="opacity" value={Math.round(s.opacity * 100)} min={0} max={100} step={1} onChange={(v) => set('Opacity', { opacity: v / 100 })} />
       <label className="field">
@@ -103,6 +108,7 @@ function SurfaceInspector({ ctx, s }: { ctx: AppContext; s: Surface }) {
 }
 
 function SourceInspector({ ctx, src }: { ctx: AppContext; src: SourceDef }) {
+  useSourceStatusVersion(ctx.engine);
   const st = ctx.engine.sourceStatus(src.id);
   const setParams = (patch: Partial<VideoParams>) => ctx.store.dispatch('Source settings', (p) => ops.updateSourceParams(p, src.id, patch));
   return (
@@ -128,6 +134,26 @@ function SourceInspector({ ctx, src }: { ctx: AppContext; src: SourceDef }) {
             <input type="checkbox" checked={!src.params.muted} onChange={(e) => setParams({ muted: !e.target.checked })} />
           </label>
         </>
+      )}
+      {src.type === 'sequence' && (
+        <div className="field">
+          <span>Frame size</span>
+          <div>
+            {(['width', 'height'] as const).map((axis) => (
+              <input key={`${axis}:${src.params[axis]}`} aria-label={axis} type="number" min={2} max={4096} defaultValue={src.params[axis]}
+                style={{ width: 72 }} onBlur={(event) => {
+                  const value = event.target.valueAsNumber;
+                  if (Number.isInteger(value) && value >= 2 && value <= 4096 && value !== src.params[axis]) {
+                    ctx.store.dispatch('Sequence frame size', (p) => ops.updateSourceParams(p, src.id, { [axis]: value }));
+                  } else event.target.value = String(src.params[axis]);
+                }} />
+            ))}
+          </div>
+        </div>
+      )}
+      {src.type !== 'testpattern' && (
+        <EffectChain key={src.id} nodes={src.params.effects ?? []} store={ctx.store}
+          onChange={(effects) => ctx.store.dispatch('Edit effect chain', (p) => ops.updateSourceParams(p, src.id, { effects }))} />
       )}
       {src.type === 'testpattern' && (
         <label className="field">

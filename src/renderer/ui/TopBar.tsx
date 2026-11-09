@@ -1,5 +1,6 @@
 import type { AppContext } from '../app-context';
 import type { Actions } from '../actions';
+import { UpdateButton } from './UpdateButton';
 import { useEditor } from './useStore';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
@@ -24,6 +25,7 @@ export function TopBar({ ctx, act, onOpen, onSave }: { ctx: AppContext; act: Act
     <div className="topbar">
       <button onClick={onOpen}>Open</button>
       <button onClick={onSave}>Save</button>
+      <UpdateButton api={api} dirty={dirty} />
       <span>
         {baseName(path)}
         {dirty && (

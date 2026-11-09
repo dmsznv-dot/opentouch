@@ -26,6 +26,11 @@ export interface Settings {
   lastMode: 'edit' | 'show';
 }
 
+export type UpdateState =
+  | { status: 'idle' | 'checking' | 'current' }
+  | { status: 'downloading' | 'ready'; version: string }
+  | { status: 'unavailable' | 'error'; detail: string };
+
 /** API exposed by the preload script as `window.opentouch`. */
 export interface OpenTouchApi {
   displays: {
@@ -35,8 +40,8 @@ export interface OpenTouchApi {
     onChanged(cb: (s: DisplayState) => void): () => void;
   };
   media: {
-    pick(): Promise<string[]>;
-    relink(): Promise<string | null>;
+    pick(kind?: 'video' | 'audio'): Promise<string[]>;
+    relink(kind?: 'video' | 'audio'): Promise<string | null>;
     url(absPath: string): string;
     /** Absolute path of a dropped File (Electron webUtils). */
     pathForFile(file: File): string;
@@ -50,6 +55,9 @@ export interface OpenTouchApi {
     toRelative(json: string, projectFile: string): Promise<string>;
   };
   app: {
+    updateState(): Promise<UpdateState>;
+    checkUpdate(): Promise<UpdateState>;
+    installUpdate(): Promise<string | null>;
     restoreState(): Promise<RestoreState>;
     setMode(mode: 'edit' | 'show'): void;
     setProjectPath(path: string | null): void;
@@ -76,6 +84,9 @@ export const IPC = {
   projectAutosave: 'project:autosave',
   projectResolveMedia: 'project:resolve-media',
   projectToRelative: 'project:to-relative',
+  updateState: 'updates:state',
+  updateCheck: 'updates:check',
+  updateInstall: 'updates:install',
   appRestoreState: 'app:restore-state',
   appSetMode: 'app:set-mode',
   appSetProjectPath: 'app:set-project-path',
