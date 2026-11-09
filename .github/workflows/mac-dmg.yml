@@ -3,6 +3,7 @@ name: Build macOS DMG
 on:
   push:
     branches: [claude/mapper-v1-spec, main]
+    paths-ignore: ['docs/**', '**/*.md']
   workflow_dispatch:
 
 permissions:
