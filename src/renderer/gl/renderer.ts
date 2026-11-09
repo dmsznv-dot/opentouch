@@ -3,6 +3,7 @@ import { buildSurfaceMesh, type SurfaceMesh } from '../../core/warp/mesh';
 import { testPatternFactory } from '../sources/testpattern';
 import type { Source } from '../sources/types';
 import { compileProgram, createTexture, solidTexture } from './context';
+import { MaskCache } from './mask';
 import { SURFACE_FS, SURFACE_VS } from './shaders';
 
 export interface OverlayState {
@@ -40,8 +41,8 @@ export class Renderer {
   private meshes = new Map<string, MeshEntry>();
   private textures = new Map<string, WebGLTexture>();
   private black!: WebGLTexture;
-  private white!: WebGLTexture;
   private testPattern: Source;
+  private masks!: MaskCache;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -64,14 +65,13 @@ export class Renderer {
       opacity: loc('uOpacity'),
     };
     this.black = solidTexture(gl, [0, 0, 0, 255]);
-    this.white = solidTexture(gl, [255, 255, 255, 255]);
+    this.masks = new MaskCache(gl);
     this.meshes.clear();
     this.textures.clear();
   }
 
-  /** Mask texture for a surface; Task 9 replaces the default with real masks. */
-  protected maskFor(_s: Surface, _size: RenderFrame['size']): WebGLTexture {
-    return this.white;
+  protected maskFor(s: Surface, size: RenderFrame['size']): WebGLTexture {
+    return this.masks.get(s, size);
   }
 
   protected meshFor(s: Surface): MeshEntry {
@@ -155,6 +155,12 @@ export class Renderer {
       const tex = src ? this.textureFor(src, f.timeSec) : this.black;
       const rect = useTest ? { x: 0, y: 0, w: 1, h: 1 } : s.inputRect;
       const mask = this.maskFor(s, f.size);
+      // Mask building changes framebuffer/blend state; restore it for every surface.
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, f.size.width, f.size.height);
+      gl.enable(gl.BLEND);
+      gl.blendEquation(gl.FUNC_ADD);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.useProgram(this.program);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -176,6 +182,7 @@ export class Renderer {
 
   private collectGarbage(f: RenderFrame): void {
     const ids = new Set(f.project.surfaces.map((s) => s.id));
+    this.masks.retain(ids);
     for (const [id, e] of this.meshes)
       if (!ids.has(id)) {
         this.deleteMesh(e);
@@ -193,6 +200,7 @@ export class Renderer {
     for (const t of this.textures.values()) this.gl.deleteTexture(t);
     this.meshes.clear();
     this.textures.clear();
+    this.masks.dispose();
     this.testPattern.dispose();
   }
 }
