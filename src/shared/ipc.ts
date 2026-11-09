@@ -38,6 +38,8 @@ export interface OpenTouchApi {
     pick(): Promise<string[]>;
     relink(): Promise<string | null>;
     url(absPath: string): string;
+    /** Absolute path of a dropped File (Electron webUtils). */
+    pathForFile(file: File): string;
   };
   project: {
     open(): Promise<OpenedProject | null>;

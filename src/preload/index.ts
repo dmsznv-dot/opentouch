@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import { IPC, type DisplayState, type OpenTouchApi } from '../shared/ipc';
 import { mediaUrlFromPath } from '../shared/media-url';
 
@@ -18,6 +18,7 @@ const api: OpenTouchApi = {
     pick: () => ipcRenderer.invoke(IPC.mediaPick),
     relink: () => ipcRenderer.invoke(IPC.mediaRelink),
     url: (p) => mediaUrlFromPath(p),
+    pathForFile: (f) => webUtils.getPathForFile(f),
   },
   project: {
     open: () => ipcRenderer.invoke(IPC.projectOpen),
