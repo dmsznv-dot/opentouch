@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import type { OpenTouchApi } from '../../src/shared/ipc';
 import { createAppContext } from '../../src/renderer/app-context';
 import { App } from '../../src/renderer/ui/App';
-import { restoreOnStartup, startAutosave } from '../../src/renderer/session';
+import { connectQuitFlow, restoreOnStartup, startAutosave } from '../../src/renderer/session';
 
 Object.assign(window, { __autosaves: [] });
 
@@ -44,10 +44,16 @@ const api: OpenTouchApi = {
     setProjectPath: () => {},
     getSettings: async () => ({ lastProject: null, autostart: false, lastMode: 'edit' }),
     setAutostart: async (on) => ({ lastProject: null, autostart: on, lastMode: 'edit' }),
-    onMenu: noop,
+    onMenu: (cb) => {
+      Object.assign(window, { __menu: cb });
+      return () => {};
+    },
+    setDirty: (d: boolean) => Object.assign(window, { __dirtyReported: d }),
+    quit: () => Object.assign(window, { __quit: true }),
   },
 };
 
 const ctx = createAppContext(api, { outputUrl: '/src/renderer/output.html' });
 Object.assign(window, { __ctx: ctx, __startAutosave: (ms: number) => startAutosave(ctx, ms), __restore: () => restoreOnStartup(ctx) });
+connectQuitFlow(ctx);
 createRoot(document.getElementById('root')!).render(<App ctx={ctx} />);

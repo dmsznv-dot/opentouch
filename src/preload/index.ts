@@ -35,6 +35,8 @@ const api: OpenTouchApi = {
     getSettings: () => ipcRenderer.invoke(IPC.appGetSettings),
     setAutostart: (on) => ipcRenderer.invoke(IPC.appSetAutostart, on),
     onMenu: (cb) => listen<string>(IPC.appMenu, cb),
+    setDirty: (d) => ipcRenderer.send(IPC.appSetDirty, d),
+    quit: () => ipcRenderer.send(IPC.appQuit),
   },
 };
 

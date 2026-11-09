@@ -50,6 +50,7 @@ test('opening a valid project loads it clean', async ({ page }) => {
 });
 
 test('corrupted and too-new files show a message and keep the current project', async ({ page }) => {
+  page.on('dialog', (d) => void d.accept()); // discard-changes prompt
   await page.getByTestId('add-surface').click();
   await openWith(page, '{');
   await expect(page.locator('.message')).toContainText('повреждён');
@@ -86,4 +87,24 @@ test('startup restore: unreadable file shows a message', async ({ page }) => {
   await page.evaluate(() => Object.assign(window, { __restoreState: { open: '/gone.otproj', mode: 'show', fromAutosave: false, projectPath: '/gone.otproj' } }));
   await page.evaluate(() => (window as unknown as { __restore(): Promise<void> }).__restore());
   await expect(page.locator('.message')).toContainText('/gone.otproj');
+});
+
+test('Open with unsaved changes asks first; Cancel keeps the project', async ({ page }) => {
+  await page.getByTestId('add-surface').click();
+  await page.evaluate((j) => Object.assign(window, { __nextOpen: { path: '/show/b.otproj', json: j } }), projectWithVideo('/tests/fixtures/bars.webm'));
+  page.once('dialog', (d) => void d.dismiss());
+  await page.getByRole('button', { name: 'Open' }).click();
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => (window as unknown as { __ctx: Ctx }).__ctx.editor.get().projectPath)).toBeNull();
+  page.once('dialog', (d) => void d.accept());
+  await page.getByRole('button', { name: 'Open' }).click();
+  await expect(page.locator('.topbar')).toContainText('b.otproj');
+});
+
+test('dirty state is reported to main, and "save-and-quit" saves then quits', async ({ page }) => {
+  await page.getByTestId('add-surface').click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __dirtyReported?: boolean }).__dirtyReported)).toBe(true);
+  await page.evaluate(() => (window as unknown as { __menu(a: string): void }).__menu('save-and-quit'));
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __quit?: boolean }).__quit)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { __ctx: Ctx }).__ctx.store.isDirty())).toBe(false);
 });

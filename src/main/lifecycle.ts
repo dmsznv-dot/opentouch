@@ -46,8 +46,34 @@ export function installLifecycle(getEditor: () => BrowserWindow | null, getOutpu
     return updateSettings({ autostart: on });
   });
 
+  let dirty = false;
+  let allowClose = false;
+  ipcMain.on(IPC.appSetDirty, (_e, d: boolean) => (dirty = d));
+  ipcMain.on(IPC.appQuit, () => {
+    allowClose = true;
+    app.quit();
+  });
+
   return {
     watch(win: BrowserWindow) {
+      // Unsaved changes: Save / Don't Save / Cancel before the editor closes (⌘Q or closing the window).
+      win.on('close', (e) => {
+        if (allowClose || !dirty) return;
+        const choice = dialog.showMessageBoxSync(win, {
+          type: 'warning',
+          buttons: ['Save', "Don't Save", 'Cancel'],
+          defaultId: 0,
+          cancelId: 2,
+          message: 'Save changes to the project before closing?',
+          detail: 'Unsaved changes are lost if you don\'t save them.',
+        });
+        if (choice === 1) {
+          allowClose = true;
+          return;
+        }
+        e.preventDefault();
+        if (choice === 0) win.webContents.send(IPC.appMenu, 'save-and-quit');
+      });
       win.webContents.on('render-process-gone', (_e, details) => {
         if (details.reason === 'clean-exit') return;
         // Black curtain over the projector, then drop the frozen output window; the reloaded editor reopens it

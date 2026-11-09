@@ -58,7 +58,10 @@ export async function loadProject(ctx: AppContext, json: string, projectPath: st
   return true;
 }
 
+export const DISCARD_PROMPT = 'В проекте есть несохранённые изменения. Открыть другой проект без сохранения?';
+
 export async function openProject(ctx: AppContext): Promise<void> {
+  if (ctx.store.isDirty() && !window.confirm(DISCARD_PROMPT)) return;
   const r = await ctx.api.project.open();
   if (r) await loadProject(ctx, r.json, r.path);
 }
@@ -68,6 +71,7 @@ export async function saveProject(ctx: AppContext, saveAs = false): Promise<void
   const path = await ctx.api.project.save(serializeProject(snapshot), saveAs ? null : ctx.editor.get().projectPath);
   if (!path) return;
   if (ctx.store.get() === snapshot) ctx.store.markSaved();
+  ctx.api.app.setDirty(ctx.store.isDirty());
   ctx.editor.set({ projectPath: path });
   ctx.api.app.setProjectPath(path);
 }
@@ -104,4 +108,25 @@ export async function restoreOnStartup(ctx: AppContext): Promise<void> {
   }
   ctx.editor.set({ mode: r.mode });
   ctx.api.app.setMode(r.mode);
+}
+
+/** Keeps main informed about unsaved changes and handles its "save-and-quit" request from the close prompt. */
+export function connectQuitFlow(ctx: AppContext): () => void {
+  let last: boolean | null = null;
+  const report = () => {
+    const d = ctx.store.isDirty();
+    if (d !== last) ctx.api.app.setDirty((last = d));
+  };
+  const offStore = ctx.store.subscribe(report);
+  report();
+  const offMenu = ctx.api.app.onMenu(async (action) => {
+    if (action !== 'save-and-quit') return;
+    await saveProject(ctx);
+    report();
+    if (!ctx.store.isDirty()) ctx.api.app.quit();
+  });
+  return () => {
+    offStore();
+    offMenu();
+  };
 }

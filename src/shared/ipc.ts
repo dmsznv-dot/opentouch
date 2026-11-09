@@ -55,7 +55,12 @@ export interface OpenTouchApi {
     setProjectPath(path: string | null): void;
     getSettings(): Promise<Settings>;
     setAutostart(on: boolean): Promise<Settings>;
+    /** Main → renderer commands: 'save-and-quit'. */
     onMenu(cb: (action: string) => void): () => void;
+    /** Tells main whether there are unsaved changes (used by the close prompt). */
+    setDirty(dirty: boolean): void;
+    /** Quit after the renderer finished saving. */
+    quit(): void;
   };
 }
 
@@ -77,4 +82,6 @@ export const IPC = {
   appGetSettings: 'app:get-settings',
   appSetAutostart: 'app:set-autostart',
   appMenu: 'app:menu',
+  appSetDirty: 'app:set-dirty',
+  appQuit: 'app:quit',
 } as const;
