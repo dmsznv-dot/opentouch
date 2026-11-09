@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { resolveShortcut } from './shortcuts';
+import { openProject, relinkSource, saveProject } from '../session';
 import type { AppContext } from '../app-context';
 import { actions } from '../actions';
 import { SourceList } from './SourceList';
@@ -15,8 +16,8 @@ export function App({ ctx }: { ctx: AppContext }) {
   const act = useMemo(() => actions(ctx), [ctx]);
   const message = useEditor(ctx.editor, (e) => e.message);
   const tab = useEditor(ctx.editor, (e) => e.tab);
-  const onOpen = () => {};
-  const onSave = () => {};
+  const onOpen = () => void openProject(ctx);
+  const onSave = () => void saveProject(ctx);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -60,7 +61,7 @@ export function App({ ctx }: { ctx: AppContext }) {
       <div className="main">
         <div className="side">
           <SurfaceList ctx={ctx} act={act} />
-          <SourceList ctx={ctx} act={act} onRelink={() => {}} />
+          <SourceList ctx={ctx} act={act} onRelink={(id) => void relinkSource(ctx, id)} />
         </div>
         <div className="viewport">
           <div className="tabs">

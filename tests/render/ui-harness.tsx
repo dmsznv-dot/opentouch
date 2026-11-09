@@ -2,6 +2,9 @@ import { createRoot } from 'react-dom/client';
 import type { OpenTouchApi } from '../../src/shared/ipc';
 import { createAppContext } from '../../src/renderer/app-context';
 import { App } from '../../src/renderer/ui/App';
+import { startAutosave } from '../../src/renderer/session';
+
+Object.assign(window, { __autosaves: [] });
 
 const noop = () => () => {};
 const api: OpenTouchApi = {
@@ -12,16 +15,18 @@ const api: OpenTouchApi = {
   },
   media: {
     pick: async () => ['/tests/fixtures/bars.webm'],
-    relink: async () => null,
+    relink: async () => '/tests/fixtures/bars.webm',
     url: (p) => p,
     pathForFile: () => '/tests/fixtures/bars.webm',
   },
   project: {
-    open: async () => null,
+    open: async () => (window as unknown as { __nextOpen?: { path: string; json: string } }).__nextOpen ?? null,
     read: async () => '',
-    save: async () => '/tmp/x.otproj',
-    autosave: async () => {},
-    resolveMedia: async (s) => s,
+    save: async (_json, path) => path ?? '/tmp/show.otproj',
+    autosave: async (json, path) => {
+      (window as unknown as { __autosaves: unknown[] }).__autosaves.push({ json, path });
+    },
+    resolveMedia: async (s) => (s.includes('missing') ? null : s),
     toRelative: async (j) => j,
   },
   app: {
@@ -35,5 +40,5 @@ const api: OpenTouchApi = {
 };
 
 const ctx = createAppContext(api, { outputUrl: '/src/renderer/output.html' });
-Object.assign(window, { __ctx: ctx });
+Object.assign(window, { __ctx: ctx, __startAutosave: (ms: number) => startAutosave(ctx, ms) });
 createRoot(document.getElementById('root')!).render(<App ctx={ctx} />);

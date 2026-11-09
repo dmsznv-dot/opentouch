@@ -5,6 +5,7 @@ import { pathFromMediaUrl } from '../shared/media-url';
 import { DisplayManager } from './displays';
 import { createMediaResponse } from './media-protocol';
 import { installOutputWindowHandler } from './output-window';
+import { registerProjectIpc } from './ipc-project';
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'otmedia', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
@@ -52,6 +53,7 @@ app.whenReady().then(() => {
   protocol.handle('otmedia', (req) => createMediaResponse(pathFromMediaUrl(req.url), req.headers.get('range')));
   const displays = new DisplayManager();
   registerIpc(displays);
+  registerProjectIpc(() => editor);
   editor = createEditorWindow(displays);
   editor.on('closed', () => (editor = null));
 });

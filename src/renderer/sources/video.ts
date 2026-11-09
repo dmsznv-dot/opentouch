@@ -30,6 +30,7 @@ export class VideoSource implements Source {
     });
     v.addEventListener('seeked', () => this.frame++);
     v.addEventListener('error', () => {
+      if (this._status === 'missing') return;
       this._status = 'error';
       this._error = v.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ? CODEC_ERROR : (v.error?.message || 'Не удалось открыть видео');
     });
