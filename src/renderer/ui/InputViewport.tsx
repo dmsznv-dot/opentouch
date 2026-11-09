@@ -1,9 +1,10 @@
+import { frameSampling, samplingOutline } from '../../core/geometry/framing';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { setInputRect } from '../../core/ops';
 import type { Rect, Vec2 } from '../../core/types';
 import type { AppContext } from '../app-context';
 import { dragInputRect, hitInputRect, type InputHandle } from './interaction/input-tool';
-import { useEditor, useProject } from './useStore';
+import { useEditor, useProject, useSourceStatusVersion } from './useStore';
 
 const HANDLE_PX = 8;
 const FRAME_MS = 1000 / 30;
@@ -16,6 +17,7 @@ export function InputViewport({ ctx }: { ctx: AppContext }) {
   const surface = useProject(ctx.store, (p) => p.surfaces.find((s) => s.id === selectedId) ?? null);
   const [box, setBox] = useState({ width: 0, height: 0 });
   const drag = useRef<{ h: InputHandle; start: Vec2; rect: Rect } | null>(null);
+  useSourceStatusVersion(ctx.engine);
   const source = surface?.sourceId ? ctx.engine.getSource(surface.sourceId) : undefined;
   const aspect = source && source.width > 1 ? source.width / source.height : 16 / 9;
 
@@ -51,16 +53,35 @@ export function InputViewport({ ctx }: { ctx: AppContext }) {
       g.fillRect(0, 0, c.width, c.height);
       if (!s) return;
       const src = s.sourceId ? ctx.engine.getSource(s.sourceId) : undefined;
-      if (src?.preview && src.status === 'ready') g.drawImage(src.preview, 0, 0, c.width, c.height);
+      if (src?.preview && (src.hasFrame ?? (src.status === 'ready'))) g.drawImage(src.preview, 0, 0, c.width, c.height);
       const r = s.inputRect;
+      const outline = samplingOutline(frameSampling(r, src ?? { width: 1, height: 1 }, s.corners,
+        ctx.store.get().output, !!s.cropToFill, s.framing));
+      const footprint = new Path2D();
+      footprint.moveTo(outline[0].x * c.width, outline[0].y * c.height);
+      for (const point of outline.slice(1)) footprint.lineTo(point.x * c.width, point.y * c.height);
+      footprint.closePath();
+      const dim = new Path2D(footprint);
+      dim.rect(0, 0, c.width, c.height);
       g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(0, 0, c.width, r.y * c.height);
-      g.fillRect(0, (r.y + r.h) * c.height, c.width, (1 - r.y - r.h) * c.height);
-      g.fillRect(0, r.y * c.height, r.x * c.width, r.h * c.height);
-      g.fillRect((r.x + r.w) * c.width, r.y * c.height, (1 - r.x - r.w) * c.width, r.h * c.height);
+      g.fill(dim, 'evenodd');
+      // If the transformed frame extends beyond the input selection, dim that overlap too.
+      g.save();
+      g.clip(footprint);
+      const outsideSelection = new Path2D();
+      outsideSelection.rect(0, 0, c.width, c.height);
+      outsideSelection.rect(r.x * c.width, r.y * c.height, r.w * c.width, r.h * c.height);
+      g.fill(outsideSelection, 'evenodd');
+      g.restore();
       g.strokeStyle = '#3fa9f5';
-      g.lineWidth = 1 * dpr;
-      g.strokeRect(r.x * c.width, r.y * c.height, r.w * c.width, r.h * c.height);
+      g.lineWidth = dpr;
+      g.stroke(footprint);
+      if (s.cropToFill) return;
+      if (s.framing) {
+        g.strokeStyle = '#bbb';
+        g.setLineDash([4 * dpr, 4 * dpr]);
+        g.strokeRect(r.x * c.width, r.y * c.height, r.w * c.width, r.h * c.height);
+      }
       g.fillStyle = '#fff';
       const hs = HANDLE_PX * dpr;
       for (const fx of [0, 0.5, 1])
@@ -86,7 +107,7 @@ export function InputViewport({ ctx }: { ctx: AppContext }) {
         data-testid="input-canvas"
         style={{ width: box.width, height: box.height, display: surface ? 'block' : 'none' }}
         onPointerDown={(e) => {
-          if (!surface) return;
+          if (!surface || surface.cropToFill) return;
           const at = norm(e);
           const h = hitInputRect(surface.inputRect, at, { x: HANDLE_PX / box.width, y: HANDLE_PX / box.height });
           if (!h) return;

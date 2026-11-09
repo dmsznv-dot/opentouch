@@ -12,6 +12,7 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'otmedia', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true } },
 ]);
 
+const AUDIO_FILTER = { name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus'] };
 const VIDEO_FILTER = { name: 'Video', extensions: ['mp4', 'mov', 'm4v', 'webm'] };
 
 let editor: BrowserWindow | null = null;
@@ -44,12 +45,12 @@ function registerIpc(displays: DisplayManager): void {
   ipcMain.handle(IPC.displaysList, () => displays.state());
   ipcMain.handle(IPC.displaysSelect, (_e, id: number | null) => displays.select(id));
   displays.on('changed', (s) => editor?.webContents.send(IPC.displaysChanged, s));
-  ipcMain.handle(IPC.mediaPick, async () => {
-    const r = await dialog.showOpenDialog(editor!, { properties: ['openFile', 'multiSelections'], filters: [VIDEO_FILTER] });
+  ipcMain.handle(IPC.mediaPick, async (_e, kind: unknown) => {
+    const r = await dialog.showOpenDialog(editor!, { properties: ['openFile', 'multiSelections'], filters: [kind === 'audio' ? AUDIO_FILTER : VIDEO_FILTER] });
     return r.canceled ? [] : r.filePaths;
   });
-  ipcMain.handle(IPC.mediaRelink, async () => {
-    const r = await dialog.showOpenDialog(editor!, { properties: ['openFile'], filters: [VIDEO_FILTER] });
+  ipcMain.handle(IPC.mediaRelink, async (_e, kind: unknown) => {
+    const r = await dialog.showOpenDialog(editor!, { properties: ['openFile'], filters: [kind === 'audio' ? AUDIO_FILTER : VIDEO_FILTER] });
     return r.canceled ? null : r.filePaths[0];
   });
 }

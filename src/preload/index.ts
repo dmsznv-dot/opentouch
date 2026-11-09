@@ -15,8 +15,8 @@ const api: OpenTouchApi = {
     onChanged: (cb) => listen<DisplayState>(IPC.displaysChanged, cb),
   },
   media: {
-    pick: () => ipcRenderer.invoke(IPC.mediaPick),
-    relink: () => ipcRenderer.invoke(IPC.mediaRelink),
+    pick: (kind) => ipcRenderer.invoke(IPC.mediaPick, kind),
+    relink: (kind) => ipcRenderer.invoke(IPC.mediaRelink, kind),
     url: (p) => mediaUrlFromPath(p),
     pathForFile: (f) => webUtils.getPathForFile(f),
   },
@@ -29,6 +29,9 @@ const api: OpenTouchApi = {
     toRelative: (json, file) => ipcRenderer.invoke(IPC.projectToRelative, json, file),
   },
   app: {
+    updateState: () => ipcRenderer.invoke(IPC.updateState),
+    checkUpdate: () => ipcRenderer.invoke(IPC.updateCheck),
+    installUpdate: () => ipcRenderer.invoke(IPC.updateInstall),
     restoreState: () => ipcRenderer.invoke(IPC.appRestoreState),
     setMode: (m) => ipcRenderer.send(IPC.appSetMode, m),
     setProjectPath: (p) => ipcRenderer.send(IPC.appSetProjectPath, p),

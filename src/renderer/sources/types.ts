@@ -7,6 +7,8 @@ export interface Source {
   readonly height: number;
   readonly status: SourceStatus;
   readonly error?: string;
+  /** Compositions may still produce frames when individual media files fail. */
+  readonly hasFrame?: boolean;
   /** Element the editor can draw with 2D canvas drawImage (Input tab preview). */
   readonly preview?: CanvasImageSource;
   /** Called once per output frame and per GL context; returns true when `tex` received new pixels. */

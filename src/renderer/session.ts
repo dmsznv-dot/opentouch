@@ -2,6 +2,7 @@ import { updateSourceParams } from '../core/ops';
 import { deserializeProject, ProjectFormatError, serializeProject } from '../core/project';
 import type { Project, SourceDef } from '../core/types';
 import type { AppContext } from './app-context';
+import { SequenceSource } from './sources/sequence';
 import { VideoSource } from './sources/video';
 
 export const AUTOSAVE_MS = 30_000;
@@ -29,7 +30,19 @@ export async function loadProject(ctx: AppContext, json: string, projectPath: st
   }
   const missing: string[] = [];
   const sources: SourceDef[] = [];
+  const missingClips = new Map<string, string[]>();
   for (const s of p.sources) {
+    if (s.type === 'sequence') {
+      const absent: string[] = [];
+      const clips = await Promise.all(s.params.clips.map(async (c) => {
+        const path = await ctx.api.project.resolveMedia(c.path, mediaBase);
+        if (!path) absent.push(c.id);
+        return path ? { ...c, path } : c;
+      }));
+      missingClips.set(s.id, absent);
+      sources.push({ ...s, params: { ...s.params, clips } });
+      continue;
+    }
     if (s.type !== 'video') {
       sources.push(s);
       continue;
@@ -42,19 +55,24 @@ export async function loadProject(ctx: AppContext, json: string, projectPath: st
     }
   }
   ctx.store.replace({ ...p, sources });
+  for (const id of missing) {
+    const src = ctx.engine.getSource(id);
+    if (src instanceof VideoSource) src.markMissing();
+  }
+  for (const [id, absent] of missingClips) {
+    const source = ctx.engine.getSource(id);
+    if (source instanceof SequenceSource) source.markMissing(absent);
+  }
   // Prefer the projector this project was calibrated on (spec §7: saved display id first).
   if (p.output.displayHint) {
     const hint = p.output.displayHint;
     const all = ctx.editor.get().displays.all;
     if (all.some((d) => d.id === hint.id)) ctx.editor.set({ displays: await ctx.api.displays.select(hint.id) });
   }
-  for (const id of missing) {
-    const src = ctx.engine.getSource(id);
-    if (src instanceof VideoSource) src.markMissing();
-  }
   ctx.editor.set({ projectPath, selectedSurfaceId: null, selectedSourceId: null, selectedPoints: [], draftMask: null });
   ctx.api.app.setProjectPath(projectPath);
-  if (missing.length) showMessage(ctx, `Не найдено медиафайлов: ${missing.length}`);
+  const missingCount = missing.length + [...missingClips.values()].reduce((n, ids) => n + ids.length, 0);
+  if (missingCount) showMessage(ctx, `Не найдено медиафайлов: ${missingCount}`);
   return true;
 }
 

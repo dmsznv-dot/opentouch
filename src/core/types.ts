@@ -1,3 +1,5 @@
+import type { EffectNode } from './effects';
+
 export type Vec2 = { x: number; y: number };
 export type Rect = { x: number; y: number; w: number; h: number };
 /** Corners in order TL, TR, BR, BL. */
@@ -24,15 +26,35 @@ export interface VideoParams {
   loop: boolean;
   rate: number;
   muted: boolean;
+  effects?: EffectNode[];
 }
 
 export interface TestPatternParams {
   pattern: 'grid' | 'checker' | 'corners';
 }
 
+export interface SequenceClip {
+  id: string;
+  path: string;
+  kind: 'video' | 'audio';
+  start: number;
+  inPoint: number;
+  duration: number;
+  muted: boolean;
+}
+
+export interface SequenceParams {
+  clips: SequenceClip[];
+  width: number;
+  height: number;
+  loop: boolean;
+  effects?: EffectNode[];
+}
+
 export type SourceDef =
   | { id: string; name: string; type: 'video'; params: VideoParams }
-  | { id: string; name: string; type: 'testpattern'; params: TestPatternParams };
+  | { id: string; name: string; type: 'testpattern'; params: TestPatternParams }
+  | { id: string; name: string; type: 'sequence'; params: SequenceParams };
 
 export type GridMode = 'linear' | 'smooth' | 'bezier';
 
@@ -56,6 +78,15 @@ export interface Mask {
   feather: number;
 }
 
+export interface ClipFraming {
+  /** Clockwise degrees around the center of the source crop. */
+  rotation: number;
+  zoom: number;
+  /** Image displacement, in fractions of the surface frame. */
+  x: number;
+  y: number;
+}
+
 export interface Surface {
   id: string;
   name: string;
@@ -63,6 +94,8 @@ export interface Surface {
   opacity: number;
   sourceId: string | null;
   inputRect: Rect;
+  cropToFill?: boolean;
+  framing?: ClipFraming;
   corners: Quad;
   grid: GridWarp | null;
   masks: Mask[];

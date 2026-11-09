@@ -1,7 +1,7 @@
 {
   "name": "opentouch",
   "productName": "OpenTouch",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Lightweight projection mapping for macOS",
   "main": "out/main/index.js",
@@ -14,7 +14,7 @@
     "test:render": "playwright test --project=render",
     "test:e2e": "install-electron && electron-vite build && playwright test --project=e2e --workers=1",
     "test": "npm run typecheck && npm run test:unit && npm run test:render",
-    "dist:mac": "electron-vite build && electron-builder --mac dmg --arm64 --x64 --publish never",
+    "dist:mac": "electron-vite build && electron-builder --mac dmg --arm64 --x64 --publish never --config.mac.identity=-",
     "setup:electron": "install-electron"
   },
   "dependencies": {
@@ -50,7 +50,6 @@
         "dmg"
       ],
       "category": "public.app-category.graphics-design",
-      "identity": "-",
       "artifactName": "OpenTouch-${arch}.${ext}"
     },
     "dmg": {

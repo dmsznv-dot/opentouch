@@ -3,6 +3,7 @@ import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
 import { IPC } from '../shared/ipc';
 import { latestAutosave } from './autosave';
 import { settingsFile, untitledFile, updateSettings } from './ipc-project';
+import { registerUpdater } from './updater';
 import { loadSettings } from './settings';
 import type { OutputWindows } from './output-window';
 import { crashAutosaveUsable, decideStartup, RestartLimiter } from './startup-logic';
@@ -48,6 +49,7 @@ export function installLifecycle(getEditor: () => BrowserWindow | null, getOutpu
 
   let dirty = false;
   let allowClose = false;
+  registerUpdater(() => !dirty);
   ipcMain.on(IPC.appSetDirty, (_e, d: boolean) => (dirty = d));
   ipcMain.on(IPC.appQuit, () => {
     allowClose = true;

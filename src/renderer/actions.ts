@@ -73,6 +73,16 @@ export function actions(ctx: AppContext) {
     async pickVideos(): Promise<void> {
       this.addVideos(await ctx.api.media.pick());
     },
+    addSequence(): void {
+      const id = newId('src');
+      const p = store.get();
+      const n = p.sources.filter((s) => s.type === 'sequence').length + 1;
+      store.dispatch('Add sequence', (project) => ops.addSource(project, {
+        id, name: `Sequence ${n}`, type: 'sequence', params: { clips: [], width: 1920, height: 1080, loop: true },
+      }));
+      bindIfEmpty(id);
+      editor.set({ selectedSourceId: id, selectedSurfaceId: null, selectedPoints: [] });
+    },
     addTestPattern(): void {
       const id = newId('src');
       store.dispatch('Add test pattern', (p) => ops.addSource(p, { id, name: 'Test pattern', type: 'testpattern', params: { pattern: 'grid' } }));

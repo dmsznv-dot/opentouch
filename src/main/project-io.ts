@@ -15,11 +15,13 @@ async function isFile(p: string): Promise<boolean> {
 /** Absolute video paths → paths relative to the project file (POSIX separators). */
 export function toProjectRelative(p: Project, projectFile: string): Project {
   const dir = dirname(projectFile);
+  const toRelative = (path: string) => isAbsolute(path) ? relative(dir, path).split(sep).join('/') : path;
   return {
     ...p,
     sources: p.sources.map((s): SourceDef => {
-      if (s.type !== 'video' || !isAbsolute(s.params.path)) return s;
-      return { ...s, params: { ...s.params, path: relative(dir, s.params.path).split(sep).join('/') } };
+      if (s.type === 'video') return { ...s, params: { ...s.params, path: toRelative(s.params.path) } };
+      if (s.type === 'sequence') return { ...s, params: { ...s.params, clips: s.params.clips.map((c) => ({ ...c, path: toRelative(c.path) })) } };
+      return s;
     }),
   };
 }

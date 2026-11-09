@@ -1,3 +1,5 @@
+import { EFFECTS } from './effects';
+import { DEFAULT_FRAMING, MAX_ZOOM } from './geometry/framing';
 import type { Project, Surface } from './types';
 
 export const CURRENT_VERSION = 1;
@@ -46,7 +48,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isVec = (v: unknown): boolean => isObject(v) && isNum(v.x) && isNum(v.y);
 const isVecArray = (v: unknown, len?: number): boolean => Array.isArray(v) && v.every(isVec) && (len === undefined || v.length === len);
-const SOURCE_TYPES = new Set(['video', 'testpattern']);
+const SOURCE_TYPES = new Set(['video', 'testpattern', 'sequence']);
 const GRID_MODES = new Set(['linear', 'smooth', 'bezier']);
 
 function invalid(what: string): never {
@@ -69,13 +71,23 @@ function normalizeSurface(s: unknown): Surface {
   }
   const r = s.inputRect;
   const inputRect = isObject(r) && isNum(r.x) && isNum(r.y) && isNum(r.w) && isNum(r.h) && r.w > 0 && r.h > 0 ? r : { x: 0, y: 0, w: 1, h: 1 };
+  const { framing, ...surface } = s;
+  const bounded = (value: unknown, fallback: number, min: number, max: number) =>
+    isNum(value) ? Math.min(max, Math.max(min, value)) : fallback;
   return {
-    ...(s as unknown as Surface),
+    ...(surface as unknown as Surface),
+    ...(isObject(framing) ? { framing: {
+      rotation: bounded(framing.rotation, DEFAULT_FRAMING.rotation, -180, 180),
+      zoom: bounded(framing.zoom, DEFAULT_FRAMING.zoom, 1, MAX_ZOOM),
+      x: bounded(framing.x, DEFAULT_FRAMING.x, -1, 1),
+      y: bounded(framing.y, DEFAULT_FRAMING.y, -1, 1),
+    } } : {}),
     name: typeof s.name === 'string' ? s.name : s.id,
     visible: typeof s.visible === 'boolean' ? s.visible : true,
     opacity: isNum(s.opacity) ? Math.min(Math.max(s.opacity, 0), 1) : 1,
     sourceId: typeof s.sourceId === 'string' ? s.sourceId : null,
     inputRect: inputRect as Surface['inputRect'],
+    ...(s.cropToFill !== undefined ? { cropToFill: s.cropToFill === true } : {}),
     grid: g as Surface['grid'],
     masks: masks as Surface['masks'],
   };
@@ -98,7 +110,32 @@ export function deserializeProject(json: string): Project {
   if (!isObject(out) || !isNum(out.width) || !isNum(out.height) || !Array.isArray(data.sources) || !Array.isArray(data.surfaces)) {
     throw new ProjectFormatError('invalid', 'Project file is missing output, sources or surfaces');
   }
-  for (const s of data.sources)
+  for (const s of data.sources) {
     if (!isObject(s) || typeof s.id !== 'string' || !SOURCE_TYPES.has(s.type as string) || !isObject(s.params)) invalid('source');
+    const p = s.params;
+    if (s.type === 'sequence') {
+      if (!Array.isArray(p.clips) || !Number.isInteger(p.width) || !Number.isInteger(p.height) ||
+        (p.width as number) < 2 || (p.width as number) > 4096 ||
+        (p.height as number) < 2 || (p.height as number) > 4096 || typeof p.loop !== 'boolean') invalid('sequence');
+      const ids = new Set<string>();
+      for (const c of p.clips) {
+        if (!isObject(c) || typeof c.id !== 'string' || ids.has(c.id) || typeof c.path !== 'string' || !c.path ||
+          (c.kind !== 'video' && c.kind !== 'audio') || typeof c.muted !== 'boolean' ||
+          !isNum(c.start) || c.start < 0 || !isNum(c.inPoint) || c.inPoint < 0 || !isNum(c.duration) || c.duration <= 0 ||
+          !Number.isFinite(c.start + c.duration) || !Number.isFinite(c.inPoint + c.duration)) invalid('clip');
+        ids.add(c.id);
+      }
+    }
+    if (s.type !== 'testpattern' && p.effects !== undefined) {
+      if (!Array.isArray(p.effects)) invalid('effects');
+      const ids = new Set<string>();
+      for (const e of p.effects) {
+        if (!isObject(e) || typeof e.id !== 'string' || ids.has(e.id) || typeof e.type !== 'string' ||
+          !Object.hasOwn(EFFECTS, e.type) || !isNum(e.value) || e.value < 0 || e.value > 1 ||
+          typeof e.enabled !== 'boolean') invalid('effect node');
+        ids.add(e.id);
+      }
+    }
+  }
   return { ...(data as unknown as Project), output: { ...(out as unknown as Project['output']), type: 'projector' }, surfaces: data.surfaces.map(normalizeSurface) };
 }

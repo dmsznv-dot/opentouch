@@ -1,14 +1,16 @@
+import { DEFAULT_FRAMING, MAX_ZOOM } from '../../core/geometry/framing';
 import * as ops from '../../core/ops';
-import type { GridMode, Mask, SourceDef, Surface, VideoParams } from '../../core/types';
+import type { ClipFraming, GridMode, Mask, SourceDef, Surface, VideoParams } from '../../core/types';
 import type { AppContext } from '../app-context';
-import { useEditor, useProject } from './useStore';
+import { EffectChain } from './EffectChain';
+import { useEditor, useProject, useSourceStatusVersion } from './useStore';
 
-function Slider({ ctx, label, value, min, max, step, onChange, testId }: {
-  ctx: AppContext; label: string; value: number; min: number; max: number; step: number; onChange(v: number): void; testId?: string;
+function Slider({ ctx, label, value, min, max, step, onChange, testId, valueLabel }: {
+  ctx: AppContext; label: string; value: number; min: number; max: number; step: number; onChange(v: number): void; testId?: string; valueLabel?: string;
 }) {
   return (
     <label className="field">
-      <span>{label}</span>
+      <span>{label}{valueLabel && <small className="slider-value">{valueLabel}</small>}</span>
       <input
         type="range"
         data-testid={testId}
@@ -19,6 +21,7 @@ function Slider({ ctx, label, value, min, max, step, onChange, testId }: {
         // One undo step per gesture.
         onPointerDown={() => ctx.store.begin(label)}
         onPointerUp={() => ctx.store.end()}
+        onPointerCancel={() => ctx.store.end()}
         onKeyUp={() => ctx.store.end()}
         onChange={(e) => onChange(Number(e.target.value))}
       />
@@ -30,6 +33,11 @@ function SurfaceInspector({ ctx, s }: { ctx: AppContext; s: Surface }) {
   const sources = useProject(ctx.store, (p) => p.sources);
   const set = (label: string, patch: Partial<Omit<Surface, 'id'>>) => ctx.store.dispatch(label, (p) => ops.updateSurface(p, s.id, patch));
   const setMask = (m: Mask, patch: Partial<Omit<Mask, 'id'>>) => ctx.store.dispatch('Edit mask', (p) => ops.updateMask(p, s.id, m.id, patch));
+  const framing = s.framing ?? DEFAULT_FRAMING;
+  const frame = (label: string, patch: Partial<ClipFraming>) =>
+    set(label, { framing: { ...framing, ...patch } });
+  const turn = (delta: number) =>
+    frame('Rotate clip', { rotation: ((framing.rotation + delta + 540) % 360) - 180 });
   const cols = s.grid?.cols ?? 0;
   const rows = s.grid?.rows ?? 0;
   const setGrid = (c: number, r: number) => ctx.store.dispatch('Grid size', (p) => ops.setGridSize(p, s.id, c, r));
@@ -51,6 +59,29 @@ function SurfaceInspector({ ctx, s }: { ctx: AppContext; s: Surface }) {
           ))}
         </select>
       </label>
+      <label className="field" title="Center the crop and preserve the source proportions">
+        <span>Crop to fill</span>
+        <input type="checkbox" checked={s.cropToFill ?? false} onChange={(e) => set('Crop to fill', { cropToFill: e.target.checked })} />
+      </label>
+      {s.sourceId && (
+        <fieldset className="clip-framing">
+          <legend>Clip framing</legend>
+          <div className="clip-framing-actions">
+            <button type="button" title="Rotate left 90°" onClick={() => turn(-90)}>↶ 90°</button>
+            <button type="button" title="Rotate right 90°" onClick={() => turn(90)}>↷ 90°</button>
+            <button type="button" onClick={() => set('Reset clip framing', { framing: undefined })}>Reset framing</button>
+          </div>
+          <Slider ctx={ctx} label="Rotate" valueLabel={`${framing.rotation}°`} min={-180} max={180} step={1}
+            value={framing.rotation} onChange={(rotation) => frame('Rotate', { rotation })} />
+          <Slider ctx={ctx} label="Zoom" valueLabel={`${Math.round(framing.zoom * 100)}%`} min={100} max={MAX_ZOOM * 100} step={1}
+            value={Math.round(framing.zoom * 100)} onChange={(zoom) => frame('Zoom', { zoom: zoom / 100 })} />
+          {(['x', 'y'] as const).map((axis) => (
+            <Slider key={axis} ctx={ctx} label={`Shift ${axis.toUpperCase()}`} valueLabel={`${Math.round(framing[axis] * 100)}%`}
+              min={-100} max={100} step={1} value={Math.round(framing[axis] * 100)}
+              onChange={(offset) => frame(`Shift ${axis.toUpperCase()}`, { [axis]: offset / 100 })} />
+          ))}
+        </fieldset>
+      )}
       <Slider ctx={ctx} label="Opacity" testId="opacity" value={Math.round(s.opacity * 100)} min={0} max={100} step={1} onChange={(v) => set('Opacity', { opacity: v / 100 })} />
       <label className="field">
         <span>Grid</span>
@@ -103,6 +134,7 @@ function SurfaceInspector({ ctx, s }: { ctx: AppContext; s: Surface }) {
 }
 
 function SourceInspector({ ctx, src }: { ctx: AppContext; src: SourceDef }) {
+  useSourceStatusVersion(ctx.engine);
   const st = ctx.engine.sourceStatus(src.id);
   const setParams = (patch: Partial<VideoParams>) => ctx.store.dispatch('Source settings', (p) => ops.updateSourceParams(p, src.id, patch));
   return (
@@ -128,6 +160,26 @@ function SourceInspector({ ctx, src }: { ctx: AppContext; src: SourceDef }) {
             <input type="checkbox" checked={!src.params.muted} onChange={(e) => setParams({ muted: !e.target.checked })} />
           </label>
         </>
+      )}
+      {src.type === 'sequence' && (
+        <div className="field">
+          <span>Frame size</span>
+          <div>
+            {(['width', 'height'] as const).map((axis) => (
+              <input key={`${axis}:${src.params[axis]}`} aria-label={axis} type="number" min={2} max={4096} defaultValue={src.params[axis]}
+                style={{ width: 72 }} onBlur={(event) => {
+                  const value = event.target.valueAsNumber;
+                  if (Number.isInteger(value) && value >= 2 && value <= 4096 && value !== src.params[axis]) {
+                    ctx.store.dispatch('Sequence frame size', (p) => ops.updateSourceParams(p, src.id, { [axis]: value }));
+                  } else event.target.value = String(src.params[axis]);
+                }} />
+            ))}
+          </div>
+        </div>
+      )}
+      {src.type !== 'testpattern' && (
+        <EffectChain key={src.id} nodes={src.params.effects ?? []} store={ctx.store}
+          onChange={(effects) => ctx.store.dispatch('Edit effect chain', (p) => ops.updateSourceParams(p, src.id, { effects }))} />
       )}
       {src.type === 'testpattern' && (
         <label className="field">

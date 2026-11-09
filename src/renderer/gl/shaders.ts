@@ -13,13 +13,22 @@ precision highp float;
 in vec2 vUv;
 uniform sampler2D uSrc;
 uniform sampler2D uMask;
-uniform vec4 uRect;      // inputRect x, y, w, h
+uniform vec4 uRect;       // mesh UV origin and size
+uniform vec4 uBounds;     // allowed region in the source texture
+uniform vec2 uSampleCenter;
+uniform vec4 uSampleAxes; // source UV axes for the unwarped surface
 uniform vec2 uHalfTexel; // half a source texel in UV
 uniform vec2 uSize;      // drawing buffer size, px
 uniform float uOpacity;
 out vec4 outColor;
 void main() {
-  vec2 uv = clamp(vUv, uRect.xy + uHalfTexel, uRect.xy + uRect.zw - uHalfTexel);
+  vec2 local = (vUv - uRect.xy) / uRect.zw - 0.5;
+  vec2 sampleUv = uSampleCenter + uSampleAxes.xy * local.x + uSampleAxes.zw * local.y;
+  vec2 end = uBounds.xy + uBounds.zw;
+  if (any(lessThan(sampleUv, uBounds.xy - 0.000001)) ||
+      any(greaterThan(sampleUv, end + 0.000001))) discard;
+  vec2 inset = min(uHalfTexel, uBounds.zw * 0.5);
+  vec2 uv = clamp(sampleUv, uBounds.xy + inset, end - inset);
   // Mask texture is rendered in framebuffer orientation, so gl_FragCoord indexes it directly.
   float m = texture(uMask, gl_FragCoord.xy / uSize).r;
   float a = m * uOpacity;
