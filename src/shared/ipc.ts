@@ -28,7 +28,8 @@ export interface Settings {
 
 export type UpdateState =
   | { status: 'idle' | 'checking' | 'current' }
-  | { status: 'downloading' | 'ready'; version: string }
+  | { status: 'downloading'; version: string }
+  | { status: 'ready'; version: string; method: 'dmg' | 'restart' }
   | { status: 'unavailable' | 'error'; detail: string };
 
 /** API exposed by the preload script as `window.opentouch`. */

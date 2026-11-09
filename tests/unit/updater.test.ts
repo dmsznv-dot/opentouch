@@ -24,7 +24,10 @@ vi.mock('electron', async () => {
     ipcMain: { handle: (key: string, handler: () => unknown) => electron.handlers.set(key, handler) },
   };
 });
-vi.mock('node:fs', () => ({ readFileSync: () => '{"opentouchUpdates":true}' }));
+vi.mock('node:fs', async (original) => ({
+  ...await original<typeof import('node:fs')>(),
+  readFileSync: () => '{"opentouchUpdates":true}',
+}));
 
 import { registerUpdater } from '../../src/main/updater';
 
@@ -51,11 +54,11 @@ it('downloads an architecture-specific update and waits for a saved project befo
   expect(setFeedURL).toHaveBeenCalledWith({ url: expect.stringContaining('/download/v0.2.10/updates-arm64.json'), serverType: 'json' });
   expect(checkForUpdates).toHaveBeenCalledOnce();
   updater.emit('update-downloaded');
-  expect(invoke(IPC.updateState)).toEqual({ status: 'ready', version: '0.2.10' });
-  expect(invoke(IPC.updateInstall)).toContain('Save');
+  expect(invoke(IPC.updateState)).toEqual({ status: 'ready', version: '0.2.10', method: 'restart' });
+  expect(await invoke(IPC.updateInstall)).toContain('Save');
   expect(quitAndInstall).not.toHaveBeenCalled();
   canInstall = true;
-  expect(invoke(IPC.updateInstall)).toBeNull();
+  expect(await invoke(IPC.updateInstall)).toBeNull();
   expect(quitAndInstall).toHaveBeenCalledOnce();
 });
 

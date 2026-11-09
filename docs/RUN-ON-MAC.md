@@ -40,7 +40,7 @@ xattr -dr com.apple.quarantine /Applications/OpenTouch.app
 
 Первую подписанную сборку установи из DMG в Applications. Затем нажми **Updates** в OpenTouch. Приложение проверит наличие новой версии и скачает её. Сохрани проект и нажми **Install and restart**.
 
-Сборки Preview доступны на [странице релизов](https://github.com/dmsznv-dot/opentouch/releases). Для них обновления внутри приложения недоступны.
+В Preview начиная с 0.2.7 кнопка **Updates** находит новый Preview-релиз, скачивает DMG и проверяет его контрольную сумму. Нажми **Open installer**, закрой приложение и перетащи новую версию в Applications. Для перехода с более старой сборки один раз скачай установщик на [странице релизов](https://github.com/dmsznv-dot/opentouch/releases).
 
 ## Сиквенсер и эффекты
 

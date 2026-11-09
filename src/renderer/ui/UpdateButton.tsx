@@ -5,6 +5,7 @@ export function UpdateButton({ api, dirty }: { api: OpenTouchApi; dirty: boolean
   const [state, setState] = useState<UpdateState>({ status: 'idle' });
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const opensInstaller = state.status === 'ready' && state.method === 'dmg';
   const busy = state.status === 'checking' || state.status === 'downloading';
 
   useEffect(() => {
@@ -50,8 +51,11 @@ export function UpdateButton({ api, dirty }: { api: OpenTouchApi; dirty: boolean
         <div className="update-popover" role="status">
           <div>{error ?? description}</div>
           {state.status === 'ready'
-            ? <button disabled={dirty} title={dirty ? 'Save the project first' : undefined} onClick={() => void install()}>Install and restart</button>
+            ? <button disabled={dirty} title={dirty ? 'Save the project first' : undefined} onClick={() => void install()}>
+                {opensInstaller ? 'Open installer' : 'Install and restart'}
+              </button>
             : <button disabled={busy} onClick={() => void check()}>Check for updates</button>}
+          {opensInstaller && <small>Quit OpenTouch and replace it in Applications from the installer.</small>}
           {state.status === 'ready' && dirty && <small>Save the project to install.</small>}
         </div>
       )}
