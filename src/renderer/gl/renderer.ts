@@ -4,6 +4,7 @@ import { testPatternFactory } from '../sources/testpattern';
 import type { Source } from '../sources/types';
 import { compileProgram, createTexture, solidTexture } from './context';
 import { MaskCache } from './mask';
+import { OverlayDrawer } from './overlay';
 import { SURFACE_FS, SURFACE_VS } from './shaders';
 
 export interface OverlayState {
@@ -23,6 +24,8 @@ export interface RenderFrame {
   overlay: OverlayState | null;
   testPattern: 'none' | 'selected' | 'all';
   selectedSurfaceId: string | null;
+  /** Multiplier for overlay handle size (devicePixelRatio of the target). */
+  handleScale?: number;
 }
 
 interface MeshEntry {
@@ -43,6 +46,7 @@ export class Renderer {
   private black!: WebGLTexture;
   private testPattern: Source;
   private masks!: MaskCache;
+  private overlay!: OverlayDrawer;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -66,6 +70,7 @@ export class Renderer {
     };
     this.black = solidTexture(gl, [0, 0, 0, 255]);
     this.masks = new MaskCache(gl);
+    this.overlay = new OverlayDrawer(gl);
     this.meshes.clear();
     this.textures.clear();
   }
@@ -177,8 +182,12 @@ export class Renderer {
     if (f.overlay) this.drawOverlay(f);
   }
 
-  /** Edit overlay; implemented in Task 10. */
-  protected drawOverlay(_f: RenderFrame): void {}
+  protected drawOverlay(f: RenderFrame): void {
+    if (!f.overlay) return;
+    // Meshes for every visible surface must exist even if they were skipped (opacity 0).
+    for (const s of f.project.surfaces) if (s.visible) this.meshFor(s);
+    this.overlay.render(f.project, this.getMeshes(), f.overlay, f.handleScale ?? 1);
+  }
 
   private collectGarbage(f: RenderFrame): void {
     const ids = new Set(f.project.surfaces.map((s) => s.id));
