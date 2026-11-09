@@ -1,7 +1,7 @@
 import { deserializeProject } from '../../src/core/project';
 import { createGL } from '../../src/renderer/gl/context';
 import { Renderer, type OverlayState, type RenderFrame } from '../../src/renderer/gl/renderer';
-import { testPatternFactory } from '../../src/renderer/sources/testpattern';
+import { getFactory } from '../../src/renderer/sources/registry';
 import type { Source, SourceContext } from '../../src/renderer/sources/types';
 
 const ctx: SourceContext = { document, mediaUrl: (p) => p };
@@ -15,7 +15,7 @@ function syncSources(json: string): ReturnType<typeof deserializeProject> {
   const p = deserializeProject(json);
   for (const d of p.sources) {
     if (sources.has(d.id)) continue;
-    if (d.type === 'testpattern') sources.set(d.id, testPatternFactory.create(d.id, d.params, ctx));
+    sources.set(d.id, getFactory(d.type).create(d.id, d.params, ctx));
   }
   return p;
 }

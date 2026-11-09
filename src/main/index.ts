@@ -1,5 +1,11 @@
 import { join } from 'node:path';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, protocol } from 'electron';
+import { pathFromMediaUrl } from '../shared/media-url';
+import { createMediaResponse } from './media-protocol';
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'otmedia', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
+]);
 
 function createEditorWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -24,6 +30,7 @@ function createEditorWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  protocol.handle('otmedia', (req) => createMediaResponse(pathFromMediaUrl(req.url), req.headers.get('range')));
   createEditorWindow();
 });
 
