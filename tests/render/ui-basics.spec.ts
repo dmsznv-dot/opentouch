@@ -87,3 +87,19 @@ test('input tab: dragging the right edge crops the source', async ({ page }) => 
   expect(p.surfaces[0].inputRect.w).toBeGreaterThan(0.55);
   expect(p.surfaces[0].inputRect.w).toBeLessThan(0.65);
 });
+
+test('keyboard: Tab toggles show mode, G toggles grid level, ⌘D duplicates, arrows nudge', async ({ page }) => {
+  await page.getByTestId('add-surface').click();
+  await page.getByTestId('output-canvas').click({ position: { x: 5, y: 5 } }); // focus stage, deselects
+  await page.evaluate(() => (window as unknown as { __ctx: { editor: { set(p: object): void }; store: { get(): { surfaces: { id: string }[] } } } }).__ctx.editor.set({ selectedSurfaceId: (window as unknown as { __ctx: { store: { get(): { surfaces: { id: string }[] } } } }).__ctx.store.get().surfaces[0].id }));
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => (window as unknown as { __ctx: { editor: { get(): { mode: string } } } }).__ctx.editor.get().mode)).toBe('show');
+  await page.keyboard.press('g');
+  expect(await page.evaluate(() => (window as unknown as { __ctx: { editor: { get(): { level: string } } } }).__ctx.editor.get().level)).toBe('grid');
+  await page.keyboard.press('Meta+d');
+  expect((await project(page)).surfaces).toHaveLength(2);
+  const before = ((await project(page)) as unknown as { surfaces: { corners: { x: number }[] }[] }).surfaces[1].corners[0].x;
+  await page.keyboard.press('ArrowRight');
+  const after = ((await project(page)) as unknown as { surfaces: { corners: { x: number }[] }[] }).surfaces[1].corners[0].x;
+  expect(after - before).toBeCloseTo(1 / 1920, 9);
+});

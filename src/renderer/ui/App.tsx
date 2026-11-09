@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { resolveShortcut } from './shortcuts';
 import type { AppContext } from '../app-context';
 import { actions } from '../actions';
 import { SourceList } from './SourceList';
@@ -14,6 +15,36 @@ export function App({ ctx }: { ctx: AppContext }) {
   const act = useMemo(() => actions(ctx), [ctx]);
   const message = useEditor(ctx.editor, (e) => e.message);
   const tab = useEditor(ctx.editor, (e) => e.tab);
+  const onOpen = () => {};
+  const onSave = () => {};
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const targetIsInput = !!t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+      const a = resolveShortcut({ key: e.key, metaKey: e.metaKey || e.ctrlKey, shiftKey: e.shiftKey, targetIsInput });
+      if (!a) return;
+      e.preventDefault();
+      if (typeof a === 'object') return ctx.tool.nudge(a.nudge, a.big);
+      switch (a) {
+        case 'duplicate': return act.duplicateSurface();
+        case 'delete': return act.deleteSelection();
+        case 'undo': return act.undo();
+        case 'redo': return act.redo();
+        case 'save': return onSave();
+        case 'open': return onOpen();
+        case 'toggleMode': return act.toggleMode();
+        case 'toggleTest': return act.cycleTestPattern();
+        case 'playPause': return act.togglePlay();
+        case 'toggleLevel': return act.toggleLevel();
+        case 'drawMask': return ctx.tool.startMask();
+        case 'toggleSnap': return act.toggleSnap();
+        case 'cancel': return ctx.tool.cancel();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   return (
     <div
@@ -25,7 +56,7 @@ export function App({ ctx }: { ctx: AppContext }) {
         act.addVideos(paths);
       }}
     >
-      <TopBar ctx={ctx} act={act} onOpen={() => {}} onSave={() => {}} />
+      <TopBar ctx={ctx} act={act} onOpen={onOpen} onSave={onSave} />
       <div className="main">
         <div className="side">
           <SurfaceList ctx={ctx} act={act} />

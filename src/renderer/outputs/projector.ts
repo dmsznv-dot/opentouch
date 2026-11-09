@@ -33,6 +33,14 @@ export class ProjectorOutput implements Output {
     }, 500);
   }
 
+  /** Re-dispatches key presses made while the projector window has focus to `target` (the editor). */
+  forwardKeysTo(target: Window): void {
+    this.win.addEventListener('keydown', (e) => {
+      e.preventDefault();
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, code: e.code, metaKey: e.metaKey, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey }));
+    });
+  }
+
   private resize(): void {
     const dpr = this.win.devicePixelRatio || 1;
     this.canvas.width = Math.max(1, Math.round(this.win.innerWidth * dpr));

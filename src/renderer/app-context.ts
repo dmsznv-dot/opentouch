@@ -55,6 +55,7 @@ export function createAppContext(api: OpenTouchApi, opts: AppContextOptions = {}
         const o = await openProjectorOutput(opts.outputUrl);
         if (!o) return;
         output = o;
+        o.forwardKeysTo(window);
         o.onClosed(() => {
           if (output === o) output = null;
           engine.setOutput(null);
