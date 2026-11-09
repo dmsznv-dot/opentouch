@@ -5,6 +5,7 @@
 - Дизайн: [`docs/superpowers/specs/2026-11-09-opentouch-mapper-v1-design.md`](docs/superpowers/specs/2026-11-09-opentouch-mapper-v1-design.md)
 - План реализации: [`docs/superpowers/plans/2026-11-09-opentouch-mapper-v1.md`](docs/superpowers/plans/2026-11-09-opentouch-mapper-v1.md)
 - Ручной чек-лист: [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md)
+- **Как запустить на Mac (просто): [`docs/RUN-ON-MAC.md`](docs/RUN-ON-MAC.md)**
 
 ## Запуск
 
