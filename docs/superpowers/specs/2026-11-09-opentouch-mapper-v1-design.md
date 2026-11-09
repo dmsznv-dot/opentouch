@@ -1,7 +1,7 @@
 # OpenTouch Mapper v1 — дизайн
 
 Дата: 2026-11-09
-Статус: черновик на ревью
+Статус: утверждён
 
 ## 1. Цель
 
@@ -79,7 +79,35 @@ interface SourceFactory<P> {
 }
 ```
 
-Источник рисует в текстуру — так же, как TOP в TD. Будущий нодовый UI — это граф `Source → Effect → Surface` поверх того же интерфейса; в v1 граф вырожден до «источник → поверхность».
+Источник рисует в текстуру — так же, как TOP в TD.
+
+### Интерфейс выхода (вторая точка расширения)
+
+```ts
+interface Output {
+  readonly id: string;
+  readonly type: string;               // v1: 'projector'; позже 'syphon' | 'record' | 'ndi'
+  readonly width: number;
+  readonly height: number;
+  /** Холст, в который рендерер рисует финальный кадр. */
+  readonly canvas: HTMLCanvasElement;
+  /** Колбэк такта: выход задаёт частоту кадров (для проектора — его vsync). */
+  onFrame(cb: (timeSec: number) => void): () => void;
+  dispose(): void;
+}
+```
+
+Проект ссылается на выход через `output` (см. §4); в v1 единственная реализация — `ProjectorOutput` (окно на дисплее).
+
+### Нодовая модель
+
+Целевая нодовая модель — короткая линейная цепочка без «ада нодов» TD:
+
+```
+Источник (видео / позже шейдер, скетч) → Поверхность (сетка, маски) → Выход (проектор / позже Syphon, запись)
+```
+
+В v1 цепочка показывается списками (источники, поверхности, выбор дисплея), а не нодовым редактором. Нодовый UI позже ложится поверх тех же трёх интерфейсов (`Source`, `Surface`, `Output`) без изменения ядра; эффекты, если появятся, встают между источником и поверхностью.
 
 ## 4. Модель данных
 
@@ -88,7 +116,7 @@ type Vec2 = { x: number; y: number };
 
 interface Project {
   version: 1;
-  output: { displayHint?: { id: number; width: number; height: number }; width: number; height: number };
+  output: { type: 'projector'; displayHint?: { id: number; width: number; height: number }; width: number; height: number };
   sources: SourceDef[];
   surfaces: Surface[];               // порядок массива = z-order (последний сверху)
 }
