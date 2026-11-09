@@ -5,6 +5,8 @@ import { SourceList } from './SourceList';
 import { SurfaceList } from './SurfaceList';
 import { TopBar } from './TopBar';
 import { Viewport } from './Viewport';
+import { InputViewport } from './InputViewport';
+import { Inspector } from './Inspector';
 import { useEditor } from './useStore';
 import './app.css';
 
@@ -38,10 +40,12 @@ export function App({ ctx }: { ctx: AppContext }) {
               Input
             </button>
           </div>
-          <Viewport ctx={ctx} />
+          {tab === 'output' ? <Viewport ctx={ctx} /> : <InputViewport ctx={ctx} />}
           {message && <div className="message">{message}</div>}
         </div>
-        <div className="side right" />
+        <div className="side right">
+          <Inspector ctx={ctx} />
+        </div>
       </div>
     </div>
   );

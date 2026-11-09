@@ -64,6 +64,9 @@ export class VideoSource implements Source {
   get element(): HTMLVideoElement {
     return this.video;
   }
+  get preview(): CanvasImageSource {
+    return this.video;
+  }
 
   /** Marks the source as missing (file not found on project open). */
   markMissing(): void {

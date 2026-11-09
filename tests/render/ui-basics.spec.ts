@@ -63,3 +63,27 @@ test('dragging a corner in the viewport moves it', async ({ page }) => {
   const p = (await project(page)) as unknown as { surfaces: { corners: { x: number }[] }[] };
   expect(p.surfaces[0].corners[0].x).toBeGreaterThan(0.28);
 });
+
+test('inspector: opacity slider and grid toggle update the surface', async ({ page }) => {
+  await page.getByTestId('add-surface').click();
+  await page.getByTestId('opacity').fill('40');
+  await page.getByTestId('grid-enabled').selectOption('on');
+  const p = (await project(page)) as unknown as { surfaces: { opacity: number; grid: { cols: number } | null }[] };
+  expect(p.surfaces[0].opacity).toBeCloseTo(0.4, 6);
+  expect(p.surfaces[0].grid?.cols).toBe(4);
+});
+
+test('input tab: dragging the right edge crops the source', async ({ page }) => {
+  await page.getByTestId('add-surface').click();
+  await page.getByRole('button', { name: 'Input' }).click();
+  const c = page.getByTestId('input-canvas');
+  const box = (await c.boundingBox())!;
+  await page.mouse.move(box.x + box.width - 1, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height / 2, { steps: 4 });
+  await page.mouse.up();
+  const p = (await project(page)) as unknown as { surfaces: { inputRect: { x: number; w: number } }[] };
+  expect(p.surfaces[0].inputRect.x).toBe(0);
+  expect(p.surfaces[0].inputRect.w).toBeGreaterThan(0.55);
+  expect(p.surfaces[0].inputRect.w).toBeLessThan(0.65);
+});

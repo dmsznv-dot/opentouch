@@ -83,6 +83,10 @@ class TestPatternSource implements Source {
     return true;
   }
 
+  get preview(): CanvasImageSource {
+    return this.canvas;
+  }
+
   dispose(): void {}
 }
 
