@@ -107,3 +107,16 @@ async function loseContext(): Promise<void> {
   await restored;
 }
 Object.assign(window, { __loseContext: loseContext });
+
+async function frameResilience(): Promise<number> {
+  const o = await openProjectorOutput('/src/renderer/output.html');
+  let n = 0;
+  o!.onFrame(() => {
+    throw new Error('render failed');
+  });
+  o!.onFrame(() => n++);
+  await new Promise((r) => setTimeout(r, 400));
+  o!.dispose();
+  return n;
+}
+Object.assign(window, { __frameResilience: frameResilience });

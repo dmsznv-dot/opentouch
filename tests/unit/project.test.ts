@@ -68,3 +68,47 @@ describe('project', () => {
     expect(p.surfaces).toEqual([]);
   });
 });
+
+describe('deserialize validation', () => {
+  const base = () => JSON.parse(JSON.stringify({ ...createProject(), surfaces: [createSurface('s', 'S')] }));
+  const code = (o: unknown) => errorCode(() => deserializeProject(JSON.stringify(o)));
+
+  test('fills in missing optional surface fields', () => {
+    const o = base();
+    delete o.surfaces[0].masks;
+    delete o.surfaces[0].opacity;
+    delete o.surfaces[0].visible;
+    delete o.surfaces[0].inputRect;
+    delete o.surfaces[0].grid;
+    delete o.surfaces[0].sourceId;
+    const p = deserializeProject(JSON.stringify(o));
+    expect(p.surfaces[0]).toMatchObject({ masks: [], opacity: 1, visible: true, inputRect: { x: 0, y: 0, w: 1, h: 1 }, grid: null, sourceId: null });
+  });
+
+  test('rejects non-numeric corners', () => {
+    const o = base();
+    o.surfaces[0].corners[1] = { x: 'a', y: 0 };
+    expect(code(o)).toBe('invalid');
+  });
+
+  test('rejects a grid whose offsets do not match cols/rows', () => {
+    const o = base();
+    o.surfaces[0].grid = { cols: 2, rows: 2, mode: 'smooth', offsets: [{ x: 0, y: 0 }] };
+    expect(code(o)).toBe('invalid');
+  });
+
+  test('rejects bezier handles of the wrong length', () => {
+    const o = base();
+    o.surfaces[0].grid = { cols: 1, rows: 1, mode: 'bezier', offsets: Array(4).fill({ x: 0, y: 0 }), handles: [] };
+    expect(code(o)).toBe('invalid');
+  });
+
+  test('rejects unknown source types and malformed masks', () => {
+    const o = base();
+    o.sources = [{ id: 'x', name: 'x', type: 'syphon', params: {} }];
+    expect(code(o)).toBe('invalid');
+    const m = base();
+    m.surfaces[0].masks = [{ id: 'm', mode: 'include', points: 'nope', feather: 0 }];
+    expect(code(m)).toBe('invalid');
+  });
+});

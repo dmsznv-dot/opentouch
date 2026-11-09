@@ -24,8 +24,15 @@ export class ProjectorOutput implements Output {
     win.addEventListener('resize', () => this.resize());
     const tick = (t: number) => {
       if (this.disposed || win.closed) return;
-      for (const cb of this.frameCbs) cb(t / 1000);
+      // Schedule first: an exception in a frame callback must not stop the projector clock.
       this.raf = win.requestAnimationFrame(tick);
+      for (const cb of this.frameCbs) {
+        try {
+          cb(t / 1000);
+        } catch (e) {
+          console.error('Output frame failed', e);
+        }
+      }
     };
     this.raf = win.requestAnimationFrame(tick);
     this.poll = setInterval(() => {

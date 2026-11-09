@@ -161,11 +161,36 @@ export class Renderer {
 
     for (const s of f.project.surfaces) {
       if (!s.visible || s.opacity <= 0) continue;
+      try {
+        this.drawSurface(f, s);
+      } catch (e) {
+        // One broken surface or source must never stop the projector; it simply stays black.
+        console.warn(`Surface ${s.id} failed to render`, e);
+      }
+    }
+    gl.bindVertexArray(null);
+    if (f.overlay) {
+      try {
+        this.drawOverlay(f);
+      } catch (e) {
+        console.warn('Overlay failed to render', e);
+      }
+    }
+  }
+
+  private drawSurface(f: RenderFrame, s: Surface): void {
+    const gl = this.gl;
+    {
       const entry = this.meshFor(s);
-      if (!entry.mesh.valid) continue;
+      if (!entry.mesh.valid) return;
       const useTest = f.testPattern === 'all' || (f.testPattern === 'selected' && s.id === f.selectedSurfaceId);
       const src = useTest ? this.testPattern : s.sourceId ? f.sources.get(s.sourceId) : undefined;
-      const tex = src ? this.textureFor(src, f.timeSec) : this.black;
+      let tex = this.black;
+      try {
+        if (src) tex = this.textureFor(src, f.timeSec);
+      } catch (e) {
+        console.warn(`Source ${src?.id} failed to update`, e);
+      }
       const rect = useTest ? { x: 0, y: 0, w: 1, h: 1 } : s.inputRect;
       const mask = this.maskFor(s, f.size, f.project.output.width);
       // Mask building changes framebuffer/blend state; restore it for every surface.
@@ -185,9 +210,8 @@ export class Renderer {
       gl.uniform1f(this.u.opacity, s.opacity);
       gl.bindVertexArray(entry.vao);
       gl.drawElements(gl.TRIANGLES, entry.mesh.indices.length, gl.UNSIGNED_INT, 0);
+      gl.bindVertexArray(null);
     }
-    gl.bindVertexArray(null);
-    if (f.overlay) this.drawOverlay(f);
   }
 
   protected drawOverlay(f: RenderFrame): void {

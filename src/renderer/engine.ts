@@ -41,12 +41,15 @@ export class Engine {
     store.subscribe(() => this.syncSources(store.get()));
     const loop = (t: number) => {
       if (this.stopped) return;
-      if (t - this.lastPreview >= PREVIEW_MIN_FRAME_MS) {
-        this.lastPreview = t;
+      this.raf = requestAnimationFrame(loop);
+      if (t - this.lastPreview < PREVIEW_MIN_FRAME_MS) return;
+      this.lastPreview = t;
+      try {
         this.renderEditor(t / 1000);
         this.checkStatus();
+      } catch (e) {
+        console.error('Preview frame failed', e);
       }
-      this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
   }
@@ -59,24 +62,34 @@ export class Engine {
         this.live.delete(id);
       }
     for (const def of p.sources) {
+      try {
+        this.syncSource(def);
+      } catch (e) {
+        console.error(`Source ${def.id} could not be created`, e);
+      }
+    }
+    this.sourcesView = new Map([...this.live].map(([id, l]) => [id, l.source]));
+  }
+
+  private syncSource(def: SourceDef): void {
+    {
       const l = this.live.get(def.id);
-      if (l && l.def === def) continue;
+      if (l && l.def === def) return;
       const sameKind = l && l.def.type === def.type;
       if (l && sameKind && def.type === 'video' && l.source instanceof VideoSource && (l.def.params as { path: string }).path === def.params.path) {
         l.source.setParams(def.params);
         l.def = def;
-        continue;
+        return;
       }
       if (l && sameKind && JSON.stringify(l.def.params) === JSON.stringify(def.params)) {
         l.def = def;
-        continue;
+        return;
       }
       l?.source.dispose();
       const source = getFactory(def.type).create(def.id, def.params, this.ctx);
       if (source instanceof VideoSource && !this.playing) source.pause();
       this.live.set(def.id, { def, source });
     }
-    this.sourcesView = new Map([...this.live].map(([id, l]) => [id, l.source]));
   }
 
   private frame(overlay: OverlayState | null, timeSec: number, size: { width: number; height: number }, handleScale: number): RenderFrame {
