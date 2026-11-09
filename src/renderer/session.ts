@@ -42,6 +42,12 @@ export async function loadProject(ctx: AppContext, json: string, projectPath: st
     }
   }
   ctx.store.replace({ ...p, sources });
+  // Prefer the projector this project was calibrated on (spec §7: saved display id first).
+  if (p.output.displayHint) {
+    const hint = p.output.displayHint;
+    const all = ctx.editor.get().displays.all;
+    if (all.some((d) => d.id === hint.id)) ctx.editor.set({ displays: await ctx.api.displays.select(hint.id) });
+  }
   for (const id of missing) {
     const src = ctx.engine.getSource(id);
     if (src instanceof VideoSource) src.markMissing();

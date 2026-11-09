@@ -7,10 +7,14 @@ import { restoreOnStartup, startAutosave } from '../../src/renderer/session';
 Object.assign(window, { __autosaves: [] });
 
 const noop = () => () => {};
+const display = () => {
+  const d = (window as unknown as { __display?: import('../../src/shared/ipc').DisplayInfo }).__display;
+  return { current: d ?? null, all: d ? [d] : [] };
+};
 const api: OpenTouchApi = {
   displays: {
-    list: async () => ({ current: null, all: [] }),
-    select: async () => ({ current: null, all: [] }),
+    list: async () => display(),
+    select: async () => display(),
     onChanged: noop,
   },
   media: {

@@ -85,6 +85,20 @@ export class ProjectStore {
     return this.future.length > 0;
   }
 
+  /**
+   * Applies `fn` to the current state and every history snapshot without adding an undo step
+   * (facts about the environment, e.g. the projector's resolution). Marks the project dirty.
+   */
+  rebase(fn: (p: Project) => Project): void {
+    const next = fn(this.state);
+    if (next === this.state) return;
+    this.past = this.past.map(fn);
+    this.future = this.future.map(fn);
+    if (this.txStart) this.txStart = fn(this.txStart);
+    this.state = next;
+    this.emit();
+  }
+
   replace(p: Project): void {
     this.state = p;
     this.saved = p;

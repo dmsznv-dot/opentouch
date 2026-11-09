@@ -9,6 +9,7 @@ export class ProjectorOutput implements Output {
   readonly canvas: HTMLCanvasElement;
   private frameCbs = new Set<(t: number) => void>();
   private closedCbs = new Set<() => void>();
+  private resizeCbs = new Set<() => void>();
   private raf = 0;
   private poll: ReturnType<typeof setInterval>;
   private disposed = false;
@@ -52,6 +53,12 @@ export class ProjectorOutput implements Output {
     const dpr = this.win.devicePixelRatio || 1;
     this.canvas.width = Math.max(1, Math.round(this.win.innerWidth * dpr));
     this.canvas.height = Math.max(1, Math.round(this.win.innerHeight * dpr));
+    for (const cb of this.resizeCbs) cb();
+  }
+
+  onResize(cb: () => void): () => void {
+    this.resizeCbs.add(cb);
+    return () => this.resizeCbs.delete(cb);
   }
 
   get width(): number {

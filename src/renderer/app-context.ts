@@ -63,6 +63,16 @@ export function createAppContext(api: OpenTouchApi, opts: AppContextOptions = {}
         });
         engine.setOutput(o);
         editor.set({ outputOpen: true });
+        // The projector defines the output resolution (nudge = 1 output px, feather px) and is remembered in the project.
+        const syncOutput = () => {
+          const d = editor.get().displays.current;
+          const hint = d ? { id: d.id, width: d.bounds.width, height: d.bounds.height } : undefined;
+          const cur = store.get().output;
+          const same = cur.width === o.width && cur.height === o.height && JSON.stringify(cur.displayHint) === JSON.stringify(hint);
+          if (!same) store.rebase((p) => ({ ...p, output: { ...p.output, width: o.width, height: o.height, displayHint: hint } }));
+        };
+        syncOutput();
+        o.onResize(syncOutput);
       } finally {
         opening = false;
       }

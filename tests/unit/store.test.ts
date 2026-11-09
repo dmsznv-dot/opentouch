@@ -78,3 +78,20 @@ describe('ProjectStore', () => {
     expect(calls).toBe(2);
   });
 });
+
+describe('ProjectStore.rebase', () => {
+  test('changes every snapshot without adding history and marks dirty', () => {
+    const s = store();
+    s.dispatch('move', (p) => movePoints(p, corner0, { x: 0.1, y: 0 }));
+    const undoable = s.canUndo();
+    s.rebase((p) => ({ ...p, output: { ...p.output, width: 1280, height: 800 } }));
+    expect(s.get().output.width).toBe(1280);
+    expect(s.isDirty()).toBe(true);
+    expect(s.canUndo()).toBe(undoable);
+    s.undo();
+    expect(s.get().output.width).toBe(1280);
+    expect(s.get().surfaces[0].corners[0].x).toBeCloseTo(0.25, 12);
+    s.redo();
+    expect(s.get().output.width).toBe(1280);
+  });
+});
