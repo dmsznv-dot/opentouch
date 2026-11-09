@@ -1,7 +1,7 @@
 import type { AppContext } from '../app-context';
 import type { Actions } from '../actions';
 import { useEditor } from './useStore';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 const baseName = (p: string | null) => (p ? p.split(/[\\/]/).pop() : 'Untitled');
 
@@ -15,6 +15,10 @@ export function TopBar({ ctx, act, onOpen, onSave }: { ctx: AppContext; act: Act
   const outputWanted = useEditor(editor, (e) => e.outputWanted);
   const path = useEditor(editor, (e) => e.projectPath);
   const dirty = useSyncExternalStore((cb) => store.subscribe(cb), () => store.isDirty());
+  const [autostart, setAutostart] = useState(false);
+  useEffect(() => {
+    void api.app.getSettings().then((s) => setAutostart(s.autostart));
+  }, [api]);
 
   return (
     <div className="topbar">
@@ -59,6 +63,15 @@ export function TopBar({ ctx, act, onOpen, onSave }: { ctx: AppContext; act: Act
       <button className={testPattern !== 'none' ? 'on' : ''} onClick={act.cycleTestPattern} title="T">
         Test: {testPattern}
       </button>
+      <label title="Open the last project in Show mode at login">
+        <input
+          type="checkbox"
+          data-testid="autostart"
+          checked={autostart}
+          onChange={async (e) => setAutostart((await api.app.setAutostart(e.target.checked)).autostart)}
+        />{' '}
+        Autostart
+      </label>
       <button onClick={act.togglePlay} title="Space">
         {playing ? 'Pause' : 'Play'}
       </button>

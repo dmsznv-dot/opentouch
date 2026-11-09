@@ -4,7 +4,7 @@ import { addSource, addSurface } from '../../src/core/ops';
 
 type Ctx = {
   store: { get(): { sources: { id: string; params: { path: string } }[]; surfaces: unknown[] }; isDirty(): boolean };
-  editor: { get(): { projectPath: string | null; message: string | null } };
+  editor: { get(): { projectPath: string | null; message: string | null; mode: string } };
   engine: { sourceStatus(id: string): { status: string } | null };
 };
 const ctx = <T,>(page: Page, f: (c: Ctx) => T) => page.evaluate(f as never) as Promise<T>;
@@ -65,4 +65,25 @@ test('autosave writes only when something changed since the last write', async (
   await page.getByTestId('add-surface').click();
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => (window as unknown as { __autosaves: unknown[] }).__autosaves.length)).toBe(1);
+});
+
+test('startup restore: crash autosave opens in the last mode and stays dirty', async ({ page }) => {
+  await page.evaluate((json) => {
+    Object.assign(window, {
+      __files: { '/show/a.otproj.autosave.1': json },
+      __restoreState: { open: '/show/a.otproj.autosave.1', mode: 'show', fromAutosave: true, projectPath: '/show/a.otproj' },
+    });
+  }, projectWithVideo('/tests/fixtures/bars.webm'));
+  await page.evaluate(() => (window as unknown as { __restore(): Promise<void> }).__restore());
+  const st = await page.evaluate(() => {
+    const c = (window as unknown as { __ctx: Ctx }).__ctx;
+    return { mode: c.editor.get().mode, path: c.editor.get().projectPath, dirty: c.store.isDirty(), n: c.store.get().surfaces.length };
+  });
+  expect(st).toEqual({ mode: 'show', path: '/show/a.otproj', dirty: true, n: 1 });
+});
+
+test('startup restore: unreadable file shows a message', async ({ page }) => {
+  await page.evaluate(() => Object.assign(window, { __restoreState: { open: '/gone.otproj', mode: 'show', fromAutosave: false, projectPath: '/gone.otproj' } }));
+  await page.evaluate(() => (window as unknown as { __restore(): Promise<void> }).__restore());
+  await expect(page.locator('.message')).toContainText('/gone.otproj');
 });

@@ -97,3 +97,13 @@ Object.assign(window, {
   setMode: (m: Mode) => engine?.setMode(m),
   closeOutput: () => output && (output as unknown as { win: Window }).win.close(),
 });
+
+async function loseContext(): Promise<void> {
+  const ext = gl.getExtension('WEBGL_lose_context')!;
+  const restored = new Promise<void>((r) => canvas.addEventListener('webglcontextrestored', () => r(), { once: true }));
+  ext.loseContext();
+  await new Promise((r) => setTimeout(r, 50));
+  ext.restoreContext();
+  await restored;
+}
+Object.assign(window, { __loseContext: loseContext });

@@ -53,7 +53,15 @@ export class Renderer {
     const doc = (gl.canvas as HTMLCanvasElement).ownerDocument ?? document;
     this.testPattern = testPatternFactory.create(TEST_PATTERN_ID, { pattern: 'grid' }, { document: doc, mediaUrl: (p) => p });
     this.initGL();
+    const canvas = gl.canvas as HTMLCanvasElement;
+    this.onLost = (e: Event) => e.preventDefault();
+    this.onRestored = () => this.initGL();
+    canvas.addEventListener('webglcontextlost', this.onLost);
+    canvas.addEventListener('webglcontextrestored', this.onRestored);
   }
+
+  private onLost: (e: Event) => void;
+  private onRestored: () => void;
 
   /** (Re)creates every GL object; also used after a context restore. */
   protected initGL(): void {
@@ -205,6 +213,9 @@ export class Renderer {
   }
 
   dispose(): void {
+    const canvas = this.gl.canvas as HTMLCanvasElement;
+    canvas.removeEventListener('webglcontextlost', this.onLost);
+    canvas.removeEventListener('webglcontextrestored', this.onRestored);
     for (const e of this.meshes.values()) this.deleteMesh(e);
     for (const t of this.textures.values()) this.gl.deleteTexture(t);
     this.meshes.clear();

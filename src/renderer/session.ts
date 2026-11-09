@@ -82,3 +82,20 @@ export function startAutosave(ctx: AppContext, intervalMs = AUTOSAVE_MS): () => 
   }, intervalMs);
   return () => clearInterval(t);
 }
+
+/** On launch (and after a crash reload): reopen what main decided, in the decided mode. */
+export async function restoreOnStartup(ctx: AppContext): Promise<void> {
+  const r = await ctx.api.app.restoreState();
+  if (r.open) {
+    try {
+      const json = await ctx.api.project.read(r.open);
+      const ok = await loadProject(ctx, json, r.projectPath, r.projectPath ?? r.open);
+      // A restored autosave holds changes newer than the project file.
+      if (ok && r.fromAutosave) ctx.store.dispatch('Restore autosave', (p) => ({ ...p }));
+    } catch {
+      showMessage(ctx, `Не удалось открыть ${r.open}`);
+    }
+  }
+  ctx.editor.set({ mode: r.mode });
+  ctx.api.app.setMode(r.mode);
+}

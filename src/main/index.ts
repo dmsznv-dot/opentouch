@@ -6,6 +6,7 @@ import { DisplayManager } from './displays';
 import { createMediaResponse } from './media-protocol';
 import { installOutputWindowHandler } from './output-window';
 import { registerProjectIpc } from './ipc-project';
+import { installLifecycle } from './lifecycle';
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'otmedia', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
@@ -54,7 +55,9 @@ app.whenReady().then(() => {
   const displays = new DisplayManager();
   registerIpc(displays);
   registerProjectIpc(() => editor);
+  const lifecycle = installLifecycle(() => editor);
   editor = createEditorWindow(displays);
+  lifecycle.watch(editor);
   editor.on('closed', () => (editor = null));
 });
 
