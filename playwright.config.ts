@@ -4,6 +4,7 @@ const RENDER_PORT = 5199;
 
 export default defineConfig({
   reporter: [['list']],
+  timeout: 20_000,
   projects: [
     {
       name: 'render',
@@ -16,7 +17,7 @@ export default defineConfig({
     { name: 'e2e', testDir: 'tests/e2e', timeout: 60_000 },
   ],
   webServer: {
-    command: `npx vite --config tests/render/vite.config.ts --port ${RENDER_PORT} --strictPort`,
+    command: `npx vite --config tests/render/vite.config.mjs --port ${RENDER_PORT} --strictPort`,
     url: `http://localhost:${RENDER_PORT}/tests/render/harness.html`,
     reuseExistingServer: true,
   },
