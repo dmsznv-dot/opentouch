@@ -39,3 +39,23 @@ xattr -dr com.apple.quarantine /Applications/OpenTouch.app
 ## Новая версия
 
 Каждое обновление кода автоматически собирает новый `.dmg` на той же странице загрузки. Скачай и замени приложение в Applications.
+
+## Для разработки (необязательно)
+
+Нужен Node.js 22 (nodejs.org, кнопка LTS). В Терминале:
+
+```bash
+git clone -b claude/mapper-v1-spec https://github.com/dmsznv-dot/opentouch ~/opentouch && cd ~/opentouch && npm install
+```
+
+Запуск из исходников (первый раз один раз скачает Electron, ~100 МБ):
+
+```bash
+cd ~/opentouch && npm run dev
+```
+
+Автотесты приложения (идут по одному, 1–2 минуты):
+
+```bash
+cd ~/opentouch && npm run test:e2e
+```

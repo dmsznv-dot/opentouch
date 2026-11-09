@@ -6,15 +6,16 @@
   "description": "Lightweight projection mapping for macOS",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "install-electron && electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.json",
     "test:unit": "vitest run",
     "test:render": "playwright test --project=render",
-    "test:e2e": "electron-vite build && playwright test --project=e2e",
+    "test:e2e": "install-electron && electron-vite build && playwright test --project=e2e --workers=1",
     "test": "npm run typecheck && npm run test:unit && npm run test:render",
-    "dist:mac": "electron-vite build && electron-builder --mac dmg --arm64 --x64 --publish never"
+    "dist:mac": "electron-vite build && electron-builder --mac dmg --arm64 --x64 --publish never",
+    "setup:electron": "install-electron"
   },
   "dependencies": {
     "earcut": "3.2.4",
