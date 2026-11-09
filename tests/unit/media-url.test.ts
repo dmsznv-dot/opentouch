@@ -26,6 +26,7 @@ describe('media protocol', () => {
     expect(r.headers.get('content-length')).toBe('10');
     expect(r.headers.get('content-type')).toBe('video/mp4');
     expect(r.headers.get('accept-ranges')).toBe('bytes');
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
     expect(await r.text()).toBe('0123456789');
   });
 
@@ -33,6 +34,7 @@ describe('media protocol', () => {
     const r = await createMediaResponse(file, 'bytes=2-5');
     expect(r.status).toBe(206);
     expect(r.headers.get('content-range')).toBe('bytes 2-5/10');
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
     expect(await r.text()).toBe('2345');
   });
 

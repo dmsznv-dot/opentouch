@@ -22,6 +22,8 @@ export class VideoSource implements Source {
     v.loop = params.loop;
     v.playsInline = true;
     v.preload = 'auto';
+    // Media is served from otmedia:// (another origin than the page); CORS keeps WebGL uploads untainted.
+    v.crossOrigin = 'anonymous';
     v.addEventListener('loadeddata', () => {
       this._status = 'ready';
       this.frame++;

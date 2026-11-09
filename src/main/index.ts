@@ -9,7 +9,7 @@ import { registerProjectIpc } from './ipc-project';
 import { installLifecycle } from './lifecycle';
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'otmedia', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
+  { scheme: 'otmedia', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true } },
 ]);
 
 const VIDEO_FILTER = { name: 'Video', extensions: ['mp4', 'mov', 'm4v', 'webm'] };

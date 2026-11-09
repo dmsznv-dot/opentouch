@@ -3,6 +3,9 @@ import { stat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { Readable } from 'node:stream';
 
+/** The renderer page is another origin (file:// or dev http://localhost); WebGL needs CORS to upload frames. */
+const CORS = { 'access-control-allow-origin': '*' };
+
 const TYPES: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.m4v': 'video/mp4',
@@ -18,7 +21,7 @@ export async function createMediaResponse(filePath: string, range: string | null
     if (!st.isFile()) throw new Error('not a file');
     size = st.size;
   } catch {
-    return new Response(null, { status: 404 });
+    return new Response(null, { status: 404, headers: CORS });
   }
   const type = TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream';
   const body = (start: number, end: number) =>
@@ -28,7 +31,7 @@ export async function createMediaResponse(filePath: string, range: string | null
   if (!m || (m[1] === '' && m[2] === '')) {
     return new Response(size ? body(0, size - 1) : null, {
       status: 200,
-      headers: { 'content-type': type, 'content-length': String(size), 'accept-ranges': 'bytes' },
+      headers: { ...CORS, 'content-type': type, 'content-length': String(size), 'accept-ranges': 'bytes' },
     });
   }
   let start: number;
@@ -41,11 +44,12 @@ export async function createMediaResponse(filePath: string, range: string | null
     end = m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
   }
   if (start > end || start >= size) {
-    return new Response(null, { status: 416, headers: { 'content-range': `bytes */${size}` } });
+    return new Response(null, { status: 416, headers: { ...CORS, 'content-range': `bytes */${size}` } });
   }
   return new Response(body(start, end), {
     status: 206,
     headers: {
+      ...CORS,
       'content-type': type,
       'content-length': String(end - start + 1),
       'content-range': `bytes ${start}-${end}/${size}`,
