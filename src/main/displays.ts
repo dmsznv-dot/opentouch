@@ -47,7 +47,10 @@ export class DisplayManager extends EventEmitter {
     this.explicit = id;
     const cur = this.current();
     if (cur) this.hint = cur;
-    return this.state();
+    const state = this.state();
+    // Moves an open output window to the newly chosen display (output-window closes it, the renderer reopens).
+    this.emit('changed', state);
+    return state;
   }
 
   state(): DisplayState {

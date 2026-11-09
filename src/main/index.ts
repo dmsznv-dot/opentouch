@@ -4,7 +4,7 @@ import { IPC } from '../shared/ipc';
 import { pathFromMediaUrl } from '../shared/media-url';
 import { DisplayManager } from './displays';
 import { createMediaResponse } from './media-protocol';
-import { installOutputWindowHandler } from './output-window';
+import { installOutputWindowHandler, type OutputWindows } from './output-window';
 import { registerProjectIpc } from './ipc-project';
 import { installLifecycle } from './lifecycle';
 
@@ -15,6 +15,8 @@ protocol.registerSchemesAsPrivileged([
 const VIDEO_FILTER = { name: 'Video', extensions: ['mp4', 'mov', 'm4v', 'webm'] };
 
 let editor: BrowserWindow | null = null;
+
+let outputs: OutputWindows | null = null;
 
 function createEditorWindow(displays: DisplayManager): BrowserWindow {
   const win = new BrowserWindow({
@@ -27,10 +29,12 @@ function createEditorWindow(displays: DisplayManager): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Videos live in this page: never throttle it when the editor is hidden behind other windows.
+      backgroundThrottling: false,
     },
   });
   win.once('ready-to-show', () => win.show());
-  installOutputWindowHandler(win, displays);
+  outputs = installOutputWindowHandler(win, displays);
   if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else void win.loadFile(join(__dirname, '../renderer/index.html'));
   return win;
@@ -55,7 +59,7 @@ app.whenReady().then(() => {
   const displays = new DisplayManager();
   registerIpc(displays);
   registerProjectIpc(() => editor);
-  const lifecycle = installLifecycle(() => editor);
+  const lifecycle = installLifecycle(() => editor, () => outputs);
   editor = createEditorWindow(displays);
   lifecycle.watch(editor);
   editor.on('closed', () => (editor = null));

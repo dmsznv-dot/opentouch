@@ -4,6 +4,7 @@ import { IPC } from '../shared/ipc';
 import { latestAutosave } from './autosave';
 import { settingsFile, untitledFile, updateSettings } from './ipc-project';
 import { loadSettings } from './settings';
+import type { OutputWindows } from './output-window';
 import { crashAutosaveUsable, decideStartup, RestartLimiter } from './startup-logic';
 
 const RUN_STARTED_AT = Date.now();
@@ -17,7 +18,7 @@ async function mtime(p: string): Promise<number | null> {
 }
 
 /** App-level IPC (mode, project path, settings, autostart, restore) and the renderer crash watchdog. */
-export function installLifecycle(getEditor: () => BrowserWindow | null): { watch(win: BrowserWindow): void } {
+export function installLifecycle(getEditor: () => BrowserWindow | null, getOutputs: () => OutputWindows | null): { watch(win: BrowserWindow): void } {
   let crashed = false;
   let currentProject: string | null = null;
   const limiter = new RestartLimiter(3, 60_000);
@@ -49,8 +50,10 @@ export function installLifecycle(getEditor: () => BrowserWindow | null): { watch
     watch(win: BrowserWindow) {
       win.webContents.on('render-process-gone', (_e, details) => {
         if (details.reason === 'clean-exit') return;
-        // Close the projector window so it does not keep a frozen frame; the renderer reopens it.
-        for (const child of win.getChildWindows()) child.close();
+        // Black curtain over the projector, then drop the frozen output window; the reloaded editor reopens it
+        // and the curtain goes away when the new output window is shown. If restarts give up, the curtain stays.
+        getOutputs()?.showCurtain();
+        getOutputs()?.closeOutput();
         const editor = getEditor();
         if (!editor || editor.isDestroyed()) return;
         if (limiter.allow(Date.now())) {
