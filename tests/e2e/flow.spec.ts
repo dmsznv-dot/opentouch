@@ -8,7 +8,7 @@ type Win = { __ctx: { store: { get(): { surfaces: { sourceId: string | null; cor
 
 test('create → duplicate → save → reopen keeps the project', async () => {
   const file = join(mkdtempSync(join(tmpdir(), 'ot-e2e-')), 'show.otproj');
-  const env = { ...process.env, OPENTOUCH_FAKE_DISPLAY: '1' };
+  const env = { ...process.env, OPENTOUCH_FAKE_DISPLAY: '1', OPENTOUCH_NO_CLOSE_PROMPT: '1' };
   let app = await electron.launch({ args: ['out/main/index.js'], env });
   let win = await app.firstWindow();
   await win.getByTestId('add-surface').click();

@@ -2,7 +2,7 @@
 import { _electron as electron, expect, test } from '@playwright/test';
 
 test('output window: black, no cursor, and the editor actually draws into it (production file:// build)', async () => {
-  const app = await electron.launch({ args: ['out/main/index.js'], env: { ...process.env, OPENTOUCH_FAKE_DISPLAY: '1' } });
+  const app = await electron.launch({ args: ['out/main/index.js'], env: { ...process.env, OPENTOUCH_FAKE_DISPLAY: '1', OPENTOUCH_NO_CLOSE_PROMPT: '1' } });
   const editor = await app.firstWindow();
   await editor.getByTestId('add-surface').click();
   await editor.getByTestId('add-testpattern').click();

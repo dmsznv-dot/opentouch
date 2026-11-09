@@ -2,7 +2,7 @@
 import { _electron as electron, expect, test } from '@playwright/test';
 
 test('renderer crash reloads the editor, restores the project and brings the output back', async () => {
-  const app = await electron.launch({ args: ['out/main/index.js'], env: { ...process.env, OPENTOUCH_FAKE_DISPLAY: '1' } });
+  const app = await electron.launch({ args: ['out/main/index.js'], env: { ...process.env, OPENTOUCH_FAKE_DISPLAY: '1', OPENTOUCH_NO_CLOSE_PROMPT: '1' } });
   const win = await app.firstWindow();
   await win.getByTestId('add-surface').click();
   await expect.poll(() => app.windows().length).toBe(2); // output window opened automatically

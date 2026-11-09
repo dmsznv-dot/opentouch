@@ -58,7 +58,7 @@ export function installLifecycle(getEditor: () => BrowserWindow | null, getOutpu
     watch(win: BrowserWindow) {
       // Unsaved changes: Save / Don't Save / Cancel before the editor closes (⌘Q or closing the window).
       win.on('close', (e) => {
-        if (allowClose || !dirty) return;
+        if (allowClose || !dirty || process.env.OPENTOUCH_NO_CLOSE_PROMPT === '1') return;
         const choice = dialog.showMessageBoxSync(win, {
           type: 'warning',
           buttons: ['Save', "Don't Save", 'Cancel'],
