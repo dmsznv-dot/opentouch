@@ -103,3 +103,17 @@ test('keyboard: Tab toggles show mode, G toggles grid level, ⌘D duplicates, ar
   const after = ((await project(page)) as unknown as { surfaces: { corners: { x: number }[] }[] }).surfaces[1].corners[0].x;
   expect(after - before).toBeCloseTo(1 / 1920, 9);
 });
+
+test('surface inspector rotates, zooms and resets the clip framing', async ({ page }) => {
+  await page.getByTestId('add-surface').click();
+  await page.getByTestId('add-video').click();
+  const controls = page.getByRole('group', { name: 'Clip framing' });
+  await controls.getByTitle('Rotate right 90°').click();
+  await expect(controls.getByRole('slider', { name: /Rotate/ })).toHaveValue('90');
+  const zoom = controls.getByRole('slider', { name: /Zoom/ });
+  await zoom.press('End');
+  await expect(zoom).toHaveValue('800');
+  await controls.getByRole('button', { name: 'Reset framing' }).click();
+  await expect(zoom).toHaveValue('100');
+  await expect(controls.getByRole('slider', { name: /Rotate/ })).toHaveValue('0');
+});

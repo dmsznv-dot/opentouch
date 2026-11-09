@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { centerCrop } from '../../src/core/geometry/crop';
+import { frameSampling } from '../../src/core/geometry/framing';
 import { createProject, createSurface, deserializeProject, serializeProject } from '../../src/core/project';
 import { activeClip, sequenceEnd } from '../../src/core/sequence';
 import type { SequenceClip } from '../../src/core/types';
@@ -37,11 +37,10 @@ describe('center crop', () => {
   it('centers the crop inside a manually selected rect and preserves pixel aspect', () => {
     const s = createSurface('door', 'Door');
     const rect = { x: 0.1, y: 0.1, w: 0.8, h: 0.8 };
-    const r = centerCrop(rect, { width: 1080, height: 1920 }, s.corners, { width: 600, height: 1000 });
-    expect(r.w).toBe(0.8);
-    expect(r.h).toBeCloseTo(0.75);
-    expect(r.x + r.w / 2).toBeCloseTo(0.5);
-    expect(r.y + r.h / 2).toBeCloseTo(0.5);
-    expect(r.w * 1080 / (r.h * 1920)).toBeCloseTo(0.6);
+    const sample = frameSampling(rect, { width: 1080, height: 1920 }, s.corners, { width: 600, height: 1000 }, true);
+    expect(sample.xAxis.x).toBeCloseTo(0.8);
+    expect(sample.yAxis.y).toBeCloseTo(0.75);
+    expect(sample.center).toEqual({ x: 0.5, y: 0.5 });
+    expect(sample.xAxis.x * 1080 / (sample.yAxis.y * 1920)).toBeCloseTo(0.6);
   });
 });

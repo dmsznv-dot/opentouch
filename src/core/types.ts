@@ -78,6 +78,15 @@ export interface Mask {
   feather: number;
 }
 
+export interface ClipFraming {
+  /** Clockwise degrees around the center of the source crop. */
+  rotation: number;
+  zoom: number;
+  /** Image displacement, in fractions of the surface frame. */
+  x: number;
+  y: number;
+}
+
 export interface Surface {
   id: string;
   name: string;
@@ -86,6 +95,7 @@ export interface Surface {
   sourceId: string | null;
   inputRect: Rect;
   cropToFill?: boolean;
+  framing?: ClipFraming;
   corners: Quad;
   grid: GridWarp | null;
   masks: Mask[];

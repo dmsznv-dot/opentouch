@@ -118,3 +118,23 @@ test('test pattern mode "all" replaces content', async ({ page }) => {
   const buf = await render(page, p, W, H, { testPattern: 'all' });
   expect(allBlack(buf)).toBe(false);
 });
+
+test('clip framing rotates and zooms content inside the same surface', async ({ page }) => {
+  const p = scene('corners');
+  p.surfaces = [p.surfaces[0]];
+  const originalCorners = p.surfaces[0].corners;
+  const rotated = updateSurface(p, 'a', { cropToFill: true, framing: { rotation: 90, zoom: 1, x: 0, y: 0 } });
+  expect(rotated.surfaces[0].corners).toBe(originalCorners);
+  const buf = await render(page, rotated, W, H);
+  expect(px(buf, W, 85, 50)).toEqual([255, 255, 0]);
+  expect(px(buf, W, 235, 50)).toEqual([255, 0, 0]);
+  expect(px(buf, W, 235, 130)).toEqual([0, 255, 0]);
+  expect(px(buf, W, 85, 130)).toEqual([0, 0, 255]);
+  expect(px(buf, W, 75, 50)).toEqual([0, 0, 0]);
+
+  const zoomed = updateSurface(p, 'a', { framing: { rotation: 0, zoom: 2, x: 0.5, y: 0 } });
+  const cropped = await render(page, zoomed, W, H);
+  expect(px(cropped, W, 85, 50)).toEqual([255, 0, 0]);
+  expect(px(cropped, W, 235, 50)).toEqual([255, 0, 0]);
+  expect(px(cropped, W, 235, 130)).toEqual([255, 255, 0]);
+});

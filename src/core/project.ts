@@ -1,4 +1,5 @@
 import { EFFECTS } from './effects';
+import { DEFAULT_FRAMING, MAX_ZOOM } from './geometry/framing';
 import type { Project, Surface } from './types';
 
 export const CURRENT_VERSION = 1;
@@ -70,8 +71,17 @@ function normalizeSurface(s: unknown): Surface {
   }
   const r = s.inputRect;
   const inputRect = isObject(r) && isNum(r.x) && isNum(r.y) && isNum(r.w) && isNum(r.h) && r.w > 0 && r.h > 0 ? r : { x: 0, y: 0, w: 1, h: 1 };
+  const { framing, ...surface } = s;
+  const bounded = (value: unknown, fallback: number, min: number, max: number) =>
+    isNum(value) ? Math.min(max, Math.max(min, value)) : fallback;
   return {
-    ...(s as unknown as Surface),
+    ...(surface as unknown as Surface),
+    ...(isObject(framing) ? { framing: {
+      rotation: bounded(framing.rotation, DEFAULT_FRAMING.rotation, -180, 180),
+      zoom: bounded(framing.zoom, DEFAULT_FRAMING.zoom, 1, MAX_ZOOM),
+      x: bounded(framing.x, DEFAULT_FRAMING.x, -1, 1),
+      y: bounded(framing.y, DEFAULT_FRAMING.y, -1, 1),
+    } } : {}),
     name: typeof s.name === 'string' ? s.name : s.id,
     visible: typeof s.visible === 'boolean' ? s.visible : true,
     opacity: isNum(s.opacity) ? Math.min(Math.max(s.opacity, 0), 1) : 1,

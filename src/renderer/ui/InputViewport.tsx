@@ -1,4 +1,4 @@
-import { centerCrop } from '../../core/geometry/crop';
+import { frameSampling, samplingOutline } from '../../core/geometry/framing';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { setInputRect } from '../../core/ops';
 import type { Rect, Vec2 } from '../../core/types';
@@ -54,17 +54,34 @@ export function InputViewport({ ctx }: { ctx: AppContext }) {
       if (!s) return;
       const src = s.sourceId ? ctx.engine.getSource(s.sourceId) : undefined;
       if (src?.preview && (src.hasFrame ?? (src.status === 'ready'))) g.drawImage(src.preview, 0, 0, c.width, c.height);
-      const auto = s.cropToFill && src;
-      const r = auto ? centerCrop(s.inputRect, src, s.corners, ctx.store.get().output) : s.inputRect;
+      const r = s.inputRect;
+      const outline = samplingOutline(frameSampling(r, src ?? { width: 1, height: 1 }, s.corners,
+        ctx.store.get().output, !!s.cropToFill, s.framing));
+      const footprint = new Path2D();
+      footprint.moveTo(outline[0].x * c.width, outline[0].y * c.height);
+      for (const point of outline.slice(1)) footprint.lineTo(point.x * c.width, point.y * c.height);
+      footprint.closePath();
+      const dim = new Path2D(footprint);
+      dim.rect(0, 0, c.width, c.height);
       g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(0, 0, c.width, r.y * c.height);
-      g.fillRect(0, (r.y + r.h) * c.height, c.width, (1 - r.y - r.h) * c.height);
-      g.fillRect(0, r.y * c.height, r.x * c.width, r.h * c.height);
-      g.fillRect((r.x + r.w) * c.width, r.y * c.height, (1 - r.x - r.w) * c.width, r.h * c.height);
+      g.fill(dim, 'evenodd');
+      // If the transformed frame extends beyond the input selection, dim that overlap too.
+      g.save();
+      g.clip(footprint);
+      const outsideSelection = new Path2D();
+      outsideSelection.rect(0, 0, c.width, c.height);
+      outsideSelection.rect(r.x * c.width, r.y * c.height, r.w * c.width, r.h * c.height);
+      g.fill(outsideSelection, 'evenodd');
+      g.restore();
       g.strokeStyle = '#3fa9f5';
-      g.lineWidth = 1 * dpr;
-      g.strokeRect(r.x * c.width, r.y * c.height, r.w * c.width, r.h * c.height);
-      if (auto) return;
+      g.lineWidth = dpr;
+      g.stroke(footprint);
+      if (s.cropToFill) return;
+      if (s.framing) {
+        g.strokeStyle = '#bbb';
+        g.setLineDash([4 * dpr, 4 * dpr]);
+        g.strokeRect(r.x * c.width, r.y * c.height, r.w * c.width, r.h * c.height);
+      }
       g.fillStyle = '#fff';
       const hs = HANDLE_PX * dpr;
       for (const fx of [0, 0.5, 1])

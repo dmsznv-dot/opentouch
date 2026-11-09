@@ -1,4 +1,4 @@
-import { centerCrop } from '../../core/geometry/crop';
+import { frameSampling } from '../../core/geometry/framing';
 import type { PointRef, Project, Rect, Surface, Vec2 } from '../../core/types';
 import { getSurfaceMesh, type SurfaceMesh } from '../../core/warp/mesh';
 import { testPatternFactory } from '../sources/testpattern';
@@ -40,7 +40,7 @@ const TEST_PATTERN_ID = '__testpattern__';
 export class Renderer {
   protected readonly gl: WebGL2RenderingContext;
   private program!: WebGLProgram;
-  private u!: Record<'src' | 'mask' | 'rect' | 'halfTexel' | 'size' | 'opacity', WebGLUniformLocation | null>;
+  private u!: Record<'src' | 'mask' | 'rect' | 'bounds' | 'sampleCenter' | 'sampleAxes' | 'halfTexel' | 'size' | 'opacity', WebGLUniformLocation | null>;
   private meshes = new Map<string, MeshEntry>();
   private textures = new Map<string, WebGLTexture>();
   private black!: WebGLTexture;
@@ -72,6 +72,9 @@ export class Renderer {
       src: loc('uSrc'),
       mask: loc('uMask'),
       rect: loc('uRect'),
+      bounds: loc('uBounds'),
+      sampleCenter: loc('uSampleCenter'),
+      sampleAxes: loc('uSampleAxes'),
       halfTexel: loc('uHalfTexel'),
       size: loc('uSize'),
       opacity: loc('uOpacity'),
@@ -190,8 +193,9 @@ export class Renderer {
       } catch (e) {
         console.warn(`Source ${src?.id} failed to update`, e);
       }
-      const rect = useTest ? { x: 0, y: 0, w: 1, h: 1 } :
-        s.cropToFill && src ? centerCrop(s.inputRect, src, s.corners, f.project.output) : s.inputRect;
+      const rect = useTest ? { x: 0, y: 0, w: 1, h: 1 } : s.inputRect;
+      const sampling = frameSampling(rect, src ?? { width: 1, height: 1 }, s.corners, f.project.output,
+        !useTest && !!s.cropToFill, useTest ? undefined : s.framing);
       const mask = this.maskFor(s, f.size, f.project.output.width);
       // Mask building changes framebuffer/blend state; restore it for every surface.
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -204,7 +208,10 @@ export class Renderer {
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, mask);
-      gl.uniform4f(this.u.rect, rect.x, rect.y, rect.w, rect.h);
+      gl.uniform4f(this.u.rect, s.inputRect.x, s.inputRect.y, s.inputRect.w, s.inputRect.h);
+      gl.uniform4f(this.u.bounds, rect.x, rect.y, rect.w, rect.h);
+      gl.uniform2f(this.u.sampleCenter, sampling.center.x, sampling.center.y);
+      gl.uniform4f(this.u.sampleAxes, sampling.xAxis.x, sampling.xAxis.y, sampling.yAxis.x, sampling.yAxis.y);
       gl.uniform2f(this.u.halfTexel, src ? 0.5 / src.width : 0, src ? 0.5 / src.height : 0);
       gl.uniform2f(this.u.size, f.size.width, f.size.height);
       gl.uniform1f(this.u.opacity, s.opacity);
