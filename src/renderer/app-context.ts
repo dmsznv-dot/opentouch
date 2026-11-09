@@ -4,12 +4,14 @@ import type { OpenTouchApi } from '../shared/ipc';
 import { EditorStore } from './editor-store';
 import { Engine } from './engine';
 import { openProjectorOutput, type ProjectorOutput } from './outputs/projector';
+import { OutputToolController } from './ui/interaction/controller';
 
 export interface AppContext {
   api: OpenTouchApi;
   store: ProjectStore;
   editor: EditorStore;
   engine: Engine;
+  tool: OutputToolController;
   openOutput(): Promise<void>;
   closeOutput(): void;
 }
@@ -45,6 +47,7 @@ export function createAppContext(api: OpenTouchApi, opts: AppContextOptions = {}
     store,
     editor,
     engine,
+    tool: new OutputToolController(store, editor),
     async openOutput() {
       if (output || opening || !editor.get().displays.current) return;
       opening = true;

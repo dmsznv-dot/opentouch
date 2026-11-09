@@ -51,3 +51,15 @@ test('dirty marker appears after a change', async ({ page }) => {
   await page.getByTestId('add-surface').click();
   await expect(page.getByTestId('dirty')).toHaveCount(1);
 });
+
+test('dragging a corner in the viewport moves it', async ({ page }) => {
+  await page.getByTestId('add-surface').click();
+  const c = page.getByTestId('output-canvas');
+  const box = (await c.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.25);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.25, { steps: 5 });
+  await page.mouse.up();
+  const p = (await project(page)) as unknown as { surfaces: { corners: { x: number }[] }[] };
+  expect(p.surfaces[0].corners[0].x).toBeGreaterThan(0.28);
+});
