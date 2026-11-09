@@ -36,3 +36,21 @@ describe('RestartLimiter', () => {
     expect(r.allow(61_500)).toBe(true);
   });
 });
+
+import { crashAutosaveUsable } from '../../src/main/startup-logic';
+
+describe('crashAutosaveUsable', () => {
+  const start = 1_000;
+  test('autosave written in this run and newer than the project file is used', () => {
+    expect(crashAutosaveUsable(5_000, 4_000, start)).toBe(true);
+  });
+  test('autosave older than the saved project file is ignored', () => {
+    expect(crashAutosaveUsable(4_000, 5_000, start)).toBe(false);
+  });
+  test('autosave left over from an earlier session is ignored', () => {
+    expect(crashAutosaveUsable(900, null, start)).toBe(false);
+  });
+  test('untitled project: any autosave from this run is used', () => {
+    expect(crashAutosaveUsable(2_000, null, start)).toBe(true);
+  });
+});

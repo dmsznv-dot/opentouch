@@ -30,3 +30,12 @@ export class RestartLimiter {
     return true;
   }
 }
+
+/**
+ * A crash autosave is restored only if it was written during this run and is newer than the
+ * saved project file — otherwise it would replace work the user already saved.
+ */
+export function crashAutosaveUsable(autosaveMtimeMs: number, projectMtimeMs: number | null, runStartedAtMs: number): boolean {
+  if (autosaveMtimeMs < runStartedAtMs) return false;
+  return projectMtimeMs === null || autosaveMtimeMs > projectMtimeMs;
+}

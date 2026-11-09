@@ -1,9 +1,20 @@
+import { stat } from 'node:fs/promises';
 import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
 import { IPC } from '../shared/ipc';
 import { latestAutosave } from './autosave';
 import { settingsFile, untitledFile, updateSettings } from './ipc-project';
 import { loadSettings } from './settings';
-import { decideStartup, RestartLimiter } from './startup-logic';
+import { crashAutosaveUsable, decideStartup, RestartLimiter } from './startup-logic';
+
+const RUN_STARTED_AT = Date.now();
+
+async function mtime(p: string): Promise<number | null> {
+  try {
+    return (await stat(p)).mtimeMs;
+  } catch {
+    return null;
+  }
+}
 
 /** App-level IPC (mode, project path, settings, autostart, restore) and the renderer crash watchdog. */
 export function installLifecycle(getEditor: () => BrowserWindow | null): { watch(win: BrowserWindow): void } {
@@ -13,7 +24,12 @@ export function installLifecycle(getEditor: () => BrowserWindow | null): { watch
 
   ipcMain.handle(IPC.appRestoreState, async () => {
     const s = await loadSettings(settingsFile());
-    const autosave = crashed ? await latestAutosave(currentProject ?? untitledFile()) : null;
+    let autosave = crashed ? await latestAutosave(currentProject ?? untitledFile()) : null;
+    if (autosave) {
+      const a = await mtime(autosave);
+      const p = currentProject ? await mtime(currentProject) : null;
+      if (a === null || !crashAutosaveUsable(a, p, RUN_STARTED_AT)) autosave = null;
+    }
     const state = decideStartup(s, autosave, crashed, currentProject);
     crashed = false;
     return state;
