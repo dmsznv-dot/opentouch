@@ -94,7 +94,8 @@ function evalSmooth(g: GridWarp, i: number, j: number, s: number, t: number): Ve
   };
 }
 
-function evalBezier(g: GridWarp, i: number, j: number, s: number, t: number): Vec2 {
+/** 4×4 Bezier control net of cell (i,j) in offset space (see plan Task 4). */
+function bezierNet(g: GridWarp, i: number, j: number): Vec2[][] {
   const handles = g.handles ?? defaultHandles(g.cols, g.rows);
   const base = baseHandles(g.cols, g.rows);
   const n00 = gridIndex(g, i, j);
@@ -126,6 +127,11 @@ function evalBezier(g: GridWarp, i: number, j: number, s: number, t: number): Ve
   add(2, 1, d(n10, 1), d(n10, 2));
   add(1, 2, d(n01, 0), d(n01, 3));
   add(2, 2, d(n11, 1), d(n11, 3));
+  return P;
+}
+
+function evalBezier(g: GridWarp, i: number, j: number, s: number, t: number): Vec2 {
+  const P = bezierNet(g, i, j);
   const bs = bernstein(s);
   const bt = bernstein(t);
   let x = 0;
@@ -152,4 +158,72 @@ export function resampleGrid(g: GridWarp, cols: number, rows: number): GridWarp 
   for (let j = 0; j <= rows; j++)
     for (let i = 0; i <= cols; i++) next.offsets[gridIndex(next, i, j)] = evaluateGridOffset(g, i / cols, j / rows);
   return next;
+}
+
+function crWeights(t: number, out: Float64Array): void {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  out[0] = 0.5 * (-t + 2 * t2 - t3);
+  out[1] = 0.5 * (2 - 5 * t2 + 3 * t3);
+  out[2] = 0.5 * (t + 4 * t2 - 3 * t3);
+  out[3] = 0.5 * (-t2 + t3);
+}
+
+function bernsteinInto(t: number, out: Float64Array): void {
+  const s = 1 - t;
+  out[0] = s * s * s;
+  out[1] = 3 * s * s * t;
+  out[2] = 3 * s * t * t;
+  out[3] = t * t * t;
+}
+
+/**
+ * Fast evaluator for many samples of one grid (mesh building): each cell's 4×4 control points
+ * are computed once and reused. Same results as evaluateGridOffset.
+ */
+export function createGridEvaluator(g: GridWarp): (u: number, v: number) => Vec2 {
+  if (g.mode === 'linear') return (u, v) => evaluateGridOffset(g, u, v);
+  const nets = new Map<number, Float64Array>();
+  const net = (i: number, j: number): Float64Array => {
+    const key = j * g.cols + i;
+    let n = nets.get(key);
+    if (n) return n;
+    n = new Float64Array(32);
+    if (g.mode === 'smooth') {
+      for (let b = 0; b < 4; b++)
+        for (let a = 0; a < 4; a++) {
+          const p = nodeExt(g, i + a - 1, j + b - 1);
+          n[(b * 4 + a) * 2] = p.x;
+          n[(b * 4 + a) * 2 + 1] = p.y;
+        }
+    } else {
+      const P = bezierNet(g, i, j);
+      for (let b = 0; b < 4; b++)
+        for (let a = 0; a < 4; a++) {
+          n[(b * 4 + a) * 2] = P[a][b].x;
+          n[(b * 4 + a) * 2 + 1] = P[a][b].y;
+        }
+    }
+    nets.set(key, n);
+    return n;
+  };
+  const wu = new Float64Array(4);
+  const wv = new Float64Array(4);
+  const weights = g.mode === 'smooth' ? crWeights : bernsteinInto;
+  return (u, v) => {
+    const [i, s] = cellOf(u, g.cols);
+    const [j, t] = cellOf(v, g.rows);
+    const n = net(i, j);
+    weights(s, wu);
+    weights(t, wv);
+    let x = 0;
+    let y = 0;
+    for (let b = 0; b < 4; b++)
+      for (let a = 0; a < 4; a++) {
+        const w = wu[a] * wv[b];
+        x += w * n[(b * 4 + a) * 2];
+        y += w * n[(b * 4 + a) * 2 + 1];
+      }
+    return { x, y };
+  };
 }

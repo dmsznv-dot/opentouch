@@ -1,5 +1,5 @@
 import type { PointRef, Project, Rect, Surface, Vec2 } from '../../core/types';
-import { buildSurfaceMesh, type SurfaceMesh } from '../../core/warp/mesh';
+import { getSurfaceMesh, type SurfaceMesh } from '../../core/warp/mesh';
 import { testPatternFactory } from '../sources/testpattern';
 import type { Source } from '../sources/types';
 import { compileProgram, createTexture, solidTexture } from './context';
@@ -29,7 +29,6 @@ export interface RenderFrame {
 }
 
 interface MeshEntry {
-  key: string;
   mesh: SurfaceMesh;
   vao: WebGLVertexArrayObject | null;
   buffers: WebGLBuffer[];
@@ -89,12 +88,11 @@ export class Renderer {
 
   protected meshFor(s: Surface): MeshEntry {
     const gl = this.gl;
-    const key = JSON.stringify([s.corners, s.grid, s.inputRect]);
+    const mesh = getSurfaceMesh(s);
     const cached = this.meshes.get(s.id);
-    if (cached && cached.key === key) return cached;
+    if (cached && cached.mesh === mesh) return cached;
     if (cached) this.deleteMesh(cached);
-    const mesh = buildSurfaceMesh(s);
-    const entry: MeshEntry = { key, mesh, vao: null, buffers: [] };
+    const entry: MeshEntry = { mesh, vao: null, buffers: [] };
     if (mesh.valid) {
       entry.vao = gl.createVertexArray();
       gl.bindVertexArray(entry.vao);

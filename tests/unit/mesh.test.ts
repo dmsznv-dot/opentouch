@@ -106,3 +106,22 @@ describe('buildSurfaceMesh', () => {
     expect(ms).toBeLessThan(300);
   });
 });
+
+import { getSurfaceMesh } from '../../src/core/warp/mesh';
+
+describe('getSurfaceMesh (shared cache)', () => {
+  test('same corners/grid/inputRect objects → same mesh object; a change → new mesh', () => {
+    const s = { corners: SCREEN, grid: withGridMode(createGrid(8, 8), 'bezier'), inputRect: FULL };
+    const a = getSurfaceMesh(s);
+    expect(getSurfaceMesh({ ...s })).toBe(a);
+    expect(getSurfaceMesh({ ...s, inputRect: { ...FULL } })).not.toBe(a);
+  });
+
+  test('8x8 bezier grid builds in under 40 ms', () => {
+    const grid = withGridMode(createGrid(8, 8), 'bezier');
+    buildSurfaceMesh({ corners: SCREEN, grid, inputRect: FULL });
+    const t = performance.now();
+    for (let i = 0; i < 3; i++) buildSurfaceMesh({ corners: SCREEN, grid, inputRect: FULL });
+    expect((performance.now() - t) / 3).toBeLessThan(40);
+  });
+});

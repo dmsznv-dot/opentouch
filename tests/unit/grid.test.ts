@@ -100,3 +100,21 @@ describe('grid', () => {
     expect(g.handles).toEqual(defaultHandles(2, 2));
   });
 });
+
+import { createGridEvaluator } from '../../src/core/warp/grid';
+
+describe('createGridEvaluator', () => {
+  test.each(MODES)('matches evaluateGridOffset (%s)', (mode) => {
+    const g = rnd(4, 3, mode);
+    if (mode === 'bezier') g.handles = g.handles!.map((h) => ({ x: h.x + Math.random() * 0.02, y: h.y - Math.random() * 0.02 }));
+    const ev = createGridEvaluator(g);
+    for (let k = 0; k < 200; k++) {
+      const u = Math.random();
+      const v = Math.random();
+      const a = evaluateGridOffset(g, u, v);
+      const b = ev(u, v);
+      expect(Math.abs(a.x - b.x)).toBeLessThan(1e-12);
+      expect(Math.abs(a.y - b.y)).toBeLessThan(1e-12);
+    }
+  });
+});

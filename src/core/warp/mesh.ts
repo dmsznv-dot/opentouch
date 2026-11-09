@@ -1,5 +1,5 @@
 import type { Surface, Vec2 } from '../types';
-import { evaluateGridOffset } from './grid';
+import { createGridEvaluator } from './grid';
 import { homographyW, unitSquareToQuad } from './homography';
 
 export interface SurfaceMesh {
@@ -59,6 +59,7 @@ export function buildSurfaceMesh(s: Pick<Surface, 'corners' | 'grid' | 'inputRec
   const h = unitSquareToQuad(s.corners);
   if (!h) return invalid([...s.corners]);
 
+  const evalGrid = s.grid ? createGridEvaluator(s.grid) : null;
   const count = (nu + 1) * (nv + 1);
   const positions = new Float32Array(count * 2);
   const uvs = new Float32Array(count * 2);
@@ -68,8 +69,8 @@ export function buildSurfaceMesh(s: Pick<Surface, 'corners' | 'grid' | 'inputRec
       const v = j / nv;
       let lu = u;
       let lv = v;
-      if (s.grid) {
-        const o = evaluateGridOffset(s.grid, u, v);
+      if (evalGrid) {
+        const o = evalGrid(u, v);
         lu += o.x;
         lv += o.y;
       }
@@ -110,4 +111,25 @@ export function buildSurfaceMesh(s: Pick<Surface, 'corners' | 'grid' | 'inputRec
     }
   }
   return { positions, uvs, indices, outline, valid: true };
+}
+
+type MeshInput = Pick<Surface, 'corners' | 'grid' | 'inputRect'>;
+const cache = new WeakMap<object, WeakMap<object, Map<object | null, SurfaceMesh>>>();
+
+/**
+ * Memoized buildSurfaceMesh keyed by object identity of corners / inputRect / grid. The model is immutable,
+ * so both renderers (preview + projector) share one CPU mesh and nothing is rebuilt until geometry changes.
+ */
+export function getSurfaceMesh(s: MeshInput): SurfaceMesh {
+  let byRect = cache.get(s.corners);
+  if (!byRect) cache.set(s.corners, (byRect = new WeakMap()));
+  let byGrid = byRect.get(s.inputRect);
+  if (!byGrid) byRect.set(s.inputRect, (byGrid = new Map()));
+  let mesh = byGrid.get(s.grid);
+  if (!mesh) {
+    mesh = buildSurfaceMesh(s);
+    byGrid.clear(); // keep only the latest grid per corners/inputRect pair
+    byGrid.set(s.grid, mesh);
+  }
+  return mesh;
 }
