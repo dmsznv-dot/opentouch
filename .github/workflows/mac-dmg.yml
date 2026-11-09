@@ -1,0 +1,40 @@
+name: Build macOS DMG
+
+on:
+  push:
+    branches: [claude/mapper-v1-spec, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck and unit tests
+        run: npm run typecheck && npm run test:unit
+
+      - name: Build DMG (Apple Silicon + Intel, ad-hoc signed)
+        run: npm run dist:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          gh release create "$TAG" dist/OpenTouch-arm64.dmg dist/OpenTouch-x64.dmg \
+            --target "${{ github.sha }}" \
+            --title "OpenTouch build ${{ github.run_number }}" \
+            --notes "Автосборка из ${{ github.ref_name }} @ ${GITHUB_SHA::7}. Apple Silicon (M1–M4): OpenTouch-arm64.dmg. Intel: OpenTouch-x64.dmg. Первый запуск: см. docs/RUN-ON-MAC.md."
